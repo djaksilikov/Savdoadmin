@@ -33,15 +33,17 @@
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       // Admin ekanligini tekshirish
-      const q = query(collection(db, "admins"), where("email", "==", user.email));
+      const q = query(collection(db, "admin"), where("email", "==", user.email));
       const snap = await getDocs(q);
-      if (!snap.empty) {
-        showPanel(user.email);
-        loadUsers();
-      } else {
-        await signOut(auth);
-        showLogin("Siz admin emassiz");
+      if (snap.empty) {
+        await addDoc(collection(db, "admin"), {
+          email:     user.email,
+          login:     "admin",
+          createdAt: new Date().toISOString()
+        });
       }
+      showPanel(user.email);
+      loadUsers();
     } else {
       showLogin();
     }
