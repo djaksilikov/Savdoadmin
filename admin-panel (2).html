@@ -5,9 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Interactive Savdo — Super Admin Panel</title>
 
+<!-- Leaflet xarita -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, doc, setDoc, updateDoc, query, where, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -16,15 +20,17 @@
     projectId:         "interactivesavdo",
     storageBucket:     "interactivesavdo.firebasestorage.app",
     messagingSenderId: "369805611273",
-    appId:             "1:369805611273:web:a8a44560ad78447fcd43d8",
-    measurementId:     "G-9D5E9PVHW2"
+    appId:             "1:369805611273:web:a8a44560ad78447fcd43d8"
   };
 
   const app  = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db   = getFirestore(app);
 
-  // ── Auth holati ──
+  let map = null;
+  let markers = [];
+
+  // ── Auth ──
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       const q = query(collection(db, "admin"), where("email", "==", user.email));
@@ -32,6 +38,7 @@
       if (!snap.empty) {
         showPanel(user.email);
         loadUsers();
+        initMap();
       } else {
         await signOut(auth);
         showLogin("Siz admin emassiz");
@@ -41,7 +48,6 @@
     }
   });
 
-  // ── Login ──
   window.doAdminLogin = async function() {
     const email = document.getElementById('adminEmail').value.trim();
     const pass  = document.getElementById('adminPass').value;
@@ -58,10 +64,81 @@
 
   window.doLogout = async function() { await signOut(auth); }
 
-  // ── Foydalanuvchilar yuklash ──
+  // ── Xarita ──
+  function initMap() {
+    if (map) return;
+    setTimeout(() => {
+      map = L.map('map').setView([42.4619, 59.6166], 9); // Nukus markazi
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+      loadMapMarkers();
+    }, 300);
+  }
+
+  async function loadMapMarkers() {
+    if (!map) return;
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+
+    const snap = await getDocs(collection(db, "shops"));
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      if (d.lat && d.lng) {
+        const color  = d.blocked ? '#E24B4A' : '#5DCAA5';
+        const icon   = L.divIcon({
+          className: 'custom-marker',
+          html: `<div style="
+            background:${color};
+            width:36px;height:36px;
+            border-radius:50% 50% 50% 0;
+            transform:rotate(-45deg);
+            border:2px solid white;
+            box-shadow:0 2px 8px rgba(0,0,0,0.3);
+          "></div>`,
+          iconSize: [36, 36],
+          iconAnchor: [18, 36],
+          popupAnchor: [0, -36]
+        });
+
+        const marker = L.marker([d.lat, d.lng], { icon })
+          .addTo(map)
+          .bindPopup(`
+            <div style="font-family:sans-serif;min-width:180px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:4px">${d.shopName || d.name || 'Magazin'}</div>
+              <div style="color:#666;font-size:12px;margin-bottom:2px">👤 ${d.name || ''}</div>
+              <div style="color:#666;font-size:12px;margin-bottom:2px">📞 ${d.phone || ''}</div>
+              <div style="color:#666;font-size:12px;margin-bottom:2px">📍 ${d.tuman || ''}</div>
+              <div style="color:#666;font-size:12px;margin-bottom:6px">🔑 ${d.login || ''}</div>
+              <div style="
+                display:inline-block;
+                padding:2px 10px;
+                border-radius:20px;
+                font-size:11px;
+                background:${d.blocked ? '#fde8e8' : '#e8f8f0'};
+                color:${d.blocked ? '#E24B4A' : '#5DCAA5'};
+              ">${d.blocked ? 'Bloklangan' : 'Faol'}</div>
+            </div>
+          `);
+        markers.push(marker);
+      }
+    });
+
+    // Marker bo'lsa xaritani ularga moslashtirish
+    if (markers.length > 0) {
+      const group = L.featureGroup(markers);
+      map.fitBounds(group.getBounds().pad(0.1));
+    }
+  }
+
+  window.refreshMap = function() {
+    loadMapMarkers();
+  }
+
+  // ── Foydalanuvchilar ──
   window.loadUsers = async function() {
     const list = document.getElementById('userTableBody');
-    list.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">Yuklanmoqda...</td></tr>`;
+    list.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#666;padding:24px">Yuklanmoqda...</td></tr>`;
 
     const users = [];
     const shopsSnap = await getDocs(collection(db, "shops"));
@@ -71,71 +148,66 @@
 
     window._allUsers = users;
     renderTable(users);
+    loadMapMarkers();
   }
 
   function renderTable(users) {
     const filter = window._currentFilter || 'all';
     const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
-
     let filtered = users;
     if (filter !== 'all') filtered = filtered.filter(u => u._role === filter);
     if (search) filtered = filtered.filter(u =>
       (u.name||'').toLowerCase().includes(search) ||
       (u.login||'').toLowerCase().includes(search) ||
-      (u.phone||'').toLowerCase().includes(search)
+      (u.phone||'').toLowerCase().includes(search) ||
+      (u.shopName||'').toLowerCase().includes(search)
     );
 
-    document.getElementById('totalCount').textContent = users.length;
+    document.getElementById('totalCount').textContent   = users.length;
     document.getElementById('magazinCount').textContent = users.filter(u => u._role === 'magazinEgasi').length;
-    document.getElementById('firmaCount').textContent = users.filter(u => u._role === 'firmaAgent').length;
+    document.getElementById('firmaCount').textContent   = users.filter(u => u._role === 'firmaAgent').length;
     document.getElementById('blockedCount').textContent = users.filter(u => u.blocked).length;
+    document.getElementById('mapCount').textContent     = users.filter(u => u._role === 'magazinEgasi' && u.lat).length;
 
     const list = document.getElementById('userTableBody');
-    if (filtered.length === 0) {
-      list.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">Foydalanuvchi topilmadi</td></tr>`;
+    if (!filtered.length) {
+      list.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#666;padding:24px">Topilmadi</td></tr>`;
       return;
     }
 
     list.innerHTML = filtered.map(u => {
       const isMagazin = u._role === 'magazinEgasi';
-      const roleLabel = isMagazin ? 'Magazin' : 'Firma';
       const roleClass = isMagazin ? 'magazin' : 'firma';
-      const loginShow = isMagazin ? (u.phone || '—') : (u.login || '—');
-      const blocked   = u.blocked;
+      const hasCoord  = u.lat && u.lng;
       return `
-        <tr class="${blocked ? 'blocked-row' : ''}">
+        <tr class="${u.blocked ? 'blocked-row' : ''}">
           <td>
             <div class="user-name-cell">
               <div class="role-dot ${roleClass}"></div>
               <div>
-                <div class="cell-name">${u.name || 'Noma\'lum'}</div>
+                <div class="cell-name">${u.shopName || u.name || '—'}</div>
                 <div class="cell-sub">${u.tuman || ''}</div>
               </div>
             </div>
           </td>
-          <td><span class="role-pill ${roleClass}">${roleLabel}</span></td>
+          <td><span class="role-pill ${roleClass}">${isMagazin ? 'Magazin' : 'Firma'}</span></td>
+          <td><span class="mono">${u.login || u.phone || '—'}</span></td>
           <td>
-            <div class="login-cell">
-              <span class="login-val" id="login_${u._id}">${loginShow}</span>
-            </div>
+            <span class="mono pass-val" id="pass_${u._id}">••••••</span>
+            <button class="eye-btn" onclick="togglePass('${u._id}','${u._pass||''}')">👁</button>
           </td>
+          <td><span class="mono">${u.phone || '—'}</span></td>
           <td>
-            <div class="pass-cell">
-              <span class="pass-val" id="pass_${u._id}">••••••</span>
-              <button class="eye-btn" onclick="togglePass('${u._id}', '${u._pass || ''}')">👁</button>
-            </div>
-          </td>
-          <td>${u.phone || '—'}</td>
-          <td>
-            <span class="status-pill ${blocked ? 'blocked' : 'active'}">
-              ${blocked ? 'Bloklangan' : 'Faol'}
-            </span>
+            ${hasCoord
+              ? `<span class="coord-badge" onclick="goToMarker(${u.lat},${u.lng})">📍 ${parseFloat(u.lat).toFixed(4)}, ${parseFloat(u.lng).toFixed(4)}</span>`
+              : `<span style="color:#555;font-size:11px">Koordinata yo'q</span>`
+            }
           </td>
           <td>
             <div class="action-btns">
-              <button class="btn-edit" onclick="openEdit('${u._id}', '${u._role}')">✏️ Tahrir</button>
-              <button class="btn-block ${blocked ? 'unblock' : ''}" onclick="toggleBlock('${u._id}', '${u._role}', ${blocked})">
-                ${blocked ? '🔓 Ochish' : '🔒 Blok'}
+              <button class="btn-edit" onclick="openEdit('${u._id}','${u._role}')">✏️</button>
+              <button class="btn-block ${u.blocked?'unblock':''}" onclick="toggleBlock('${u._id}','${u._role}',${!!u.blocked})">
+                ${u.blocked ? '🔓' : '🔒'}
               </button>
             </div>
           </td>
@@ -143,90 +215,93 @@
     }).join('');
   }
 
-  // ── Parolni ko'rsatish ──
-  window.togglePass = function(id, pass) {
-    const el = document.getElementById('pass_' + id);
-    if (el.textContent === '••••••') {
-      el.textContent = pass || '(saqlanmagan)';
-      el.style.color = 'var(--amber)';
-    } else {
-      el.textContent = '••••••';
-      el.style.color = '';
-    }
+  window.goToMarker = function(lat, lng) {
+    if (!map) return;
+    document.getElementById('tab-map').click();
+    setTimeout(() => {
+      map.setView([lat, lng], 16);
+      map.invalidateSize();
+    }, 200);
   }
 
-  // ── Bloklash ──
+  window.togglePass = function(id, pass) {
+    const el = document.getElementById('pass_' + id);
+    el.textContent = el.textContent === '••••••' ? (pass || '—') : '••••••';
+  }
+
   window.toggleBlock = async function(id, role, isBlocked) {
-    const collName = role === 'magazinEgasi' ? 'shops' : 'firms';
-    await updateDoc(doc(db, collName, id), { blocked: !isBlocked });
+    const coll = role === 'magazinEgasi' ? 'shops' : 'firms';
+    await updateDoc(doc(db, coll, id), { blocked: !isBlocked });
     await loadUsers();
   }
 
-  // ── Tahrirlash ──
   window.openEdit = async function(id, role) {
-    const collName = role === 'magazinEgasi' ? 'shops' : 'firms';
-    const snap = await getDoc(doc(db, collName, id));
-    const data = snap.data();
-
-    document.getElementById('editId').value   = id;
-    document.getElementById('editRole').value = role;
-    document.getElementById('editName').value  = data.name  || '';
-    document.getElementById('editPhone').value = data.phone || '';
-    document.getElementById('editLogin').value = data.login || data.phone || '';
-    document.getElementById('editTuman').value = data.tuman || '';
-    document.getElementById('editPass').value  = '';
-    document.getElementById('editModal').style.display = 'flex';
+    const coll = role === 'magazinEgasi' ? 'shops' : 'firms';
+    const snap = await getDoc(doc(db, coll, id));
+    const d = snap.data();
+    document.getElementById('editId').value       = id;
+    document.getElementById('editRole').value     = role;
+    document.getElementById('editName').value     = d.name || '';
+    document.getElementById('editShopName').value = d.shopName || '';
+    document.getElementById('editPhone').value    = d.phone || '';
+    document.getElementById('editLogin').value    = d.login || '';
+    document.getElementById('editTuman').value    = d.tuman || '';
+    document.getElementById('editLat').value      = d.lat || '';
+    document.getElementById('editLng').value      = d.lng || '';
+    document.getElementById('editPass').value     = '';
+    document.getElementById('editShopNameGroup').style.display = role === 'magazinEgasi' ? 'block' : 'none';
+    document.getElementById('editCoordGroup').style.display    = role === 'magazinEgasi' ? 'block' : 'none';
     document.getElementById('editMsg').style.display = 'none';
+    document.getElementById('editModal').style.display = 'flex';
   }
 
-  window.closeEdit = function() {
-    document.getElementById('editModal').style.display = 'none';
-  }
+  window.closeEdit = function() { document.getElementById('editModal').style.display = 'none'; }
 
   window.saveEdit = async function() {
     const id    = document.getElementById('editId').value;
     const role  = document.getElementById('editRole').value;
     const name  = document.getElementById('editName').value.trim();
+    const shop  = document.getElementById('editShopName').value.trim();
     const phone = document.getElementById('editPhone').value.trim();
     const login = document.getElementById('editLogin').value.trim();
     const tuman = document.getElementById('editTuman').value;
+    const lat   = document.getElementById('editLat').value.trim();
+    const lng   = document.getElementById('editLng').value.trim();
     const pass  = document.getElementById('editPass').value;
-
     if (!name) { showEditMsg("Ism familyani kiriting"); return; }
-
     const btn = document.getElementById('saveEditBtn');
     btn.disabled = true; btn.textContent = "Saqlanmoqda...";
-
     try {
-      const collName = role === 'magazinEgasi' ? 'shops' : 'firms';
-      const updateData = { name, phone, login, tuman };
-      if (pass) updateData._pass = pass;
-      await updateDoc(doc(db, collName, id), updateData);
-
+      const coll = role === 'magazinEgasi' ? 'shops' : 'firms';
+      const data = { name, phone, login, tuman };
+      if (shop) data.shopName = shop;
+      if (lat)  data.lat = parseFloat(lat);
+      if (lng)  data.lng = parseFloat(lng);
+      if (pass) data._pass = pass;
+      await updateDoc(doc(db, coll, id), data);
       closeEdit();
       await loadUsers();
-    } catch(e) {
-      showEditMsg("Xatolik: " + e.message);
-    }
+    } catch(e) { showEditMsg("Xatolik: " + e.message); }
     btn.disabled = false; btn.textContent = "Saqlash";
   }
 
-  function showEditMsg(txt) {
+  function showEditMsg(t) {
     const el = document.getElementById('editMsg');
-    el.textContent = txt;
-    el.style.display = 'block';
+    el.textContent = t; el.style.display = 'block';
   }
 
-  // ── Yangi foydalanuvchi yaratish ──
-  window.selectedRole  = null;
+  // ── Yangi foydalanuvchi ──
+  window.selectedRole = null;
   window.selectedTuman = null;
   window._currentFilter = 'all';
 
   window.selectRole = function(role) {
     window.selectedRole = role;
-    document.getElementById('roleMagazin').className = 'role-option' + (role === 'magazinEgasi' ? ' sel-magazin' : '');
-    document.getElementById('roleFirma').className   = 'role-option' + (role === 'firmaAgent'   ? ' sel-firma'   : '');
-    document.getElementById('tumanGroup').style.display = role === 'firmaAgent' ? 'block' : 'none';
+    document.getElementById('roleMagazin').className = 'role-option' + (role==='magazinEgasi'?' sel-magazin':'');
+    document.getElementById('roleFirma').className   = 'role-option' + (role==='firmaAgent'  ?' sel-firma':'');
+    document.getElementById('tumanGroup').style.display    = 'block';
+    document.getElementById('shopNameGroup').style.display = role==='magazinEgasi' ? 'block' : 'none';
+    document.getElementById('coordGroup').style.display    = role==='magazinEgasi' ? 'block' : 'none';
     hideMsg();
   }
 
@@ -240,65 +315,70 @@
     hideMsg();
     const role     = window.selectedRole;
     const fullName = document.getElementById('fullName').value.trim();
+    const shopName = document.getElementById('shopName').value.trim();
     const phone    = document.getElementById('phone').value.trim();
     const login    = document.getElementById('loginField').value.trim().toLowerCase();
     const pass     = document.getElementById('passField').value;
     const passConf = document.getElementById('passConfirm').value;
     const tuman    = window.selectedTuman;
+    const lat      = document.getElementById('latField').value.trim();
+    const lng      = document.getElementById('lngField').value.trim();
 
-    if (!role)              { showError("Rol tanlang"); return; }
-    if (!fullName)          { showError("Ism familyani kiriting"); return; }
-    if (!phone)             { showError("Telefon raqamini kiriting"); return; }
-    if (login.length < 3)  { showError("Login kamida 3 belgidan iborat bo'lishi kerak"); return; }
-    if (pass.length < 6)   { showError("Parol kamida 6 belgidan iborat bo'lishi kerak"); return; }
+    if (!role)             { showError("Rol tanlang"); return; }
+    if (!fullName)         { showError("Ism familyani kiriting"); return; }
+    if (role==='magazinEgasi' && !shopName) { showError("Magazin nomini kiriting"); return; }
+    if (!phone)            { showError("Telefon kiriting"); return; }
+    if (login.length < 3)  { showError("Login kamida 3 belgi"); return; }
+    if (pass.length < 6)   { showError("Parol kamida 6 belgi"); return; }
     if (pass !== passConf) { showError("Parollar mos kelmadi"); return; }
-    if (role === 'firmaAgent' && !tuman) { showError("Tuman tanlang"); return; }
+    if (!tuman)            { showError("Tuman tanlang"); return; }
+    if (role==='magazinEgasi' && (!lat || !lng)) { showError("Koordinata kiriting"); return; }
 
     const btn = document.getElementById('submitBtn');
     btn.disabled = true; btn.textContent = "Saqlanmoqda...";
 
     try {
-      const email = `${login}@interactivesavdo.uz`;
+      const email    = `${login}@interactivesavdo.uz`;
       const userCred = await createUserWithEmailAndPassword(auth, email, pass);
-      const uid = userCred.user.uid;
-      const collName = role === 'magazinEgasi' ? 'shops' : 'firms';
-
-      await setDoc(doc(db, collName, uid), {
+      const uid      = userCred.user.uid;
+      const coll     = role === 'magazinEgasi' ? 'shops' : 'firms';
+      const data     = {
         name: fullName, phone, login, email,
-        tuman: tuman || '', role,
-        _pass: pass,
-        blocked: false,
+        tuman, role, _pass: pass, blocked: false,
         createdAt: new Date().toISOString()
-      });
-
+      };
+      if (role === 'magazinEgasi') {
+        data.shopName = shopName;
+        data.lat = parseFloat(lat);
+        data.lng = parseFloat(lng);
+      }
+      await setDoc(doc(db, coll, uid), data);
       await loadUsers();
       resetForm();
       showSuccess(`${fullName} muvaffaqiyatli yaratildi!`);
     } catch(e) {
-      if (e.code === 'auth/email-already-in-use') showError("Bu login allaqachon ishlatilmoqda");
+      if (e.code==='auth/email-already-in-use') showError("Bu login allaqachon ishlatilmoqda");
       else showError("Xatolik: " + e.message);
     }
     btn.disabled = false; btn.textContent = "Foydalanuvchi yaratish";
   }
 
-  window.setFilter = function(filter) {
-    window._currentFilter = filter;
+  window.setFilter = function(f) {
+    window._currentFilter = f;
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('filter_' + filter).classList.add('active');
-    renderTable(window._allUsers || []);
+    document.getElementById('filter_'+f).classList.add('active');
+    renderTable(window._allUsers||[]);
   }
 
-  window.doSearch = function() {
-    renderTable(window._allUsers || []);
-  }
+  window.doSearch = function() { renderTable(window._allUsers||[]); }
 
-  window.showError = function(txt) {
-    document.getElementById('msgErrorText').textContent = txt;
+  window.showError = function(t) {
+    document.getElementById('msgErrorText').textContent = t;
     document.getElementById('msgError').className = 'msg error show';
     document.getElementById('msgSuccess').className = 'msg success';
   }
-  window.showSuccess = function(txt) {
-    document.getElementById('msgSuccessText').textContent = txt;
+  window.showSuccess = function(t) {
+    document.getElementById('msgSuccessText').textContent = t;
     document.getElementById('msgSuccess').className = 'msg success show';
     document.getElementById('msgError').className = 'msg error';
   }
@@ -307,60 +387,83 @@
     document.getElementById('msgSuccess').className = 'msg success';
   }
 
+  window.resetForm = function() {
+    ['fullName','shopName','phone','loginField','passField','passConfirm','latField','lngField']
+      .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('roleMagazin').className = 'role-option';
+    document.getElementById('roleFirma').className   = 'role-option';
+    document.getElementById('tumanGroup').style.display    = 'none';
+    document.getElementById('shopNameGroup').style.display = 'none';
+    document.getElementById('coordGroup').style.display    = 'none';
+    document.querySelectorAll('.tuman-tag').forEach(t=>t.classList.remove('active'));
+    window.selectedRole=null; window.selectedTuman=null;
+  }
+
+  // Tab switching
+  window.switchTab = function(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+    document.getElementById('tab-'+tab).classList.add('active');
+    document.getElementById('content-'+tab).style.display='flex';
+    if (tab==='map' && map) {
+      setTimeout(()=>map.invalidateSize(), 100);
+    }
+  }
+
   function showPanel(email) {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('panelScreen').style.display = 'flex';
-    document.getElementById('sessionInfo').textContent = email;
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('panelScreen').style.display='flex';
+    document.getElementById('sessionInfo').textContent=email;
   }
   function showLogin(err) {
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('panelScreen').style.display = 'none';
-    if (err) { const el = document.getElementById('loginError'); el.textContent = err; el.style.display = 'block'; }
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('panelScreen').style.display='none';
+    if(err){const el=document.getElementById('loginError');el.textContent=err;el.style.display='block';}
   }
-  function showLoginError(txt) {
-    const el = document.getElementById('loginError');
-    el.textContent = txt; el.style.display = 'block';
+  function showLoginError(t) {
+    const el=document.getElementById('loginError');el.textContent=t;el.style.display='block';
   }
 
   window.toggleStrength = function(val) {
-    let score = 0;
-    if (val.length >= 6) score++;
-    if (val.length >= 10) score++;
-    if (/[A-Z0-9]/.test(val)) score++;
-    if (/[^a-zA-Z0-9]/.test(val) && val.length >= 8) score++;
-    const colors = ['#E24B4A','#EF9F27','#5DCAA5','#5DCAA5'];
-    const labels = ['','Zaif',"O'rtacha",'Yaxshi','Kuchli'];
-    ['s1','s2','s3','s4'].forEach((id,i) => {
-      document.getElementById(id).style.background = i < score ? colors[score-1] : 'var(--border2)';
+    let s=0;
+    if(val.length>=6)s++;if(val.length>=10)s++;
+    if(/[A-Z0-9]/.test(val))s++;if(/[^a-zA-Z0-9]/.test(val)&&val.length>=8)s++;
+    const colors=['#E24B4A','#EF9F27','#5DCAA5','#5DCAA5'];
+    const labels=['','Zaif',"O'rtacha",'Yaxshi','Kuchli'];
+    ['s1','s2','s3','s4'].forEach((id,i)=>{
+      document.getElementById(id).style.background=i<s?colors[s-1]:'var(--border2)';
     });
-    document.getElementById('strengthLabel').textContent = val.length > 0 ? labels[score] : '';
+    document.getElementById('strengthLabel').textContent=val.length>0?labels[s]:'';
   }
 
-  window.resetForm = function() {
-    ['fullName','phone','loginField','passField','passConfirm'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) { el.value = ''; el.className = ''; }
+  // Koordinata yordamchisi
+  window.getMyLocation = function() {
+    if (!navigator.geolocation) { alert("Brauzer geolokatsiyani qo'llab-quvvatlamaydi"); return; }
+    navigator.geolocation.getCurrentPosition(pos => {
+      document.getElementById('latField').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('lngField').value = pos.coords.longitude.toFixed(6);
+    }, () => alert("Joylashuvni aniqlashda xatolik"));
+  }
+
+  window.getEditMyLocation = function() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(pos => {
+      document.getElementById('editLat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('editLng').value = pos.coords.longitude.toFixed(6);
     });
-    document.getElementById('roleMagazin').className = 'role-option';
-    document.getElementById('roleFirma').className   = 'role-option';
-    document.getElementById('tumanGroup').style.display = 'none';
-    document.querySelectorAll('.tuman-tag').forEach(t => t.classList.remove('active'));
-    ['s1','s2','s3','s4'].forEach(id => document.getElementById(id).style.background = 'var(--border2)');
-    document.getElementById('strengthLabel').textContent = '';
-    window.selectedRole = null; window.selectedTuman = null;
   }
 </script>
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
   :root {
-    --bg:#0f0f10; --surface:#1a1a1c; --surface2:#222224;
-    --border:#2a2a2d; --border2:#333336;
-    --text:#f0f0f0; --muted:#555558; --muted2:#888;
-    --green:#5DCAA5; --green-dim:rgba(93,202,165,0.12);
-    --purple:#7F77DD; --purple-dim:rgba(127,119,221,0.12);
-    --red:#E24B4A; --red-dim:rgba(226,75,74,0.12);
-    --amber:#EF9F27; --amber-dim:rgba(239,159,39,0.12);
+    --bg:#0f0f10;--surface:#1a1a1c;--surface2:#222224;
+    --border:#2a2a2d;--border2:#333336;
+    --text:#f0f0f0;--muted:#555;--muted2:#888;
+    --green:#5DCAA5;--green-dim:rgba(93,202,165,0.12);
+    --purple:#7F77DD;--purple-dim:rgba(127,119,221,0.12);
+    --red:#E24B4A;--red-dim:rgba(226,75,74,0.12);
+    --amber:#EF9F27;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;min-height:100vh;}
@@ -371,133 +474,136 @@
   .login-logo{display:flex;align-items:center;gap:12px;margin-bottom:28px;}
   .logo-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:24px;height:24px;}
   .logo-grid span{border-radius:2px;background:var(--text);}
-  .logo-grid span:nth-child(3){opacity:.4;} .logo-grid span:nth-child(4){opacity:.7;}
+  .logo-grid span:nth-child(3){opacity:.4;}.logo-grid span:nth-child(4){opacity:.7;}
   .login-title{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;}
   .login-error{background:var(--red-dim);border:1px solid rgba(226,75,74,.25);color:var(--red);font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:16px;display:none;}
 
   /* PANEL */
   #panelScreen{display:none;flex-direction:column;min-height:100vh;}
-  header{border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;background:var(--surface);}
+  header{border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;background:var(--surface);flex-shrink:0;}
   .header-left{display:flex;align-items:center;gap:12px;}
   .header-title{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
   .header-title span{color:var(--muted2);font-weight:400;}
-  .header-right{display:flex;align-items:center;gap:12px;}
+  .header-right{display:flex;align-items:center;gap:10px;}
   .header-badge{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--red);background:var(--red-dim);border:1px solid rgba(226,75,74,.25);padding:3px 10px;border-radius:4px;}
   .logout-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted2);background:var(--surface2);border:1px solid var(--border2);padding:4px 12px;border-radius:6px;cursor:pointer;}
-  .logout-btn:hover{color:var(--red);}
 
-  .panel-body{display:grid;grid-template-columns:1fr 360px;flex:1;gap:0;}
+  /* TABS */
+  .tab-bar{display:flex;gap:4px;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+  .tab-btn{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:7px 18px;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--muted2);cursor:pointer;transition:.15s;}
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{background:var(--surface2);border-color:var(--muted2);color:var(--text);}
 
-  /* CHAP — jadval */
-  .left-panel{padding:24px;overflow-y:auto;}
+  .tab-content{display:none;flex:1;overflow:hidden;}
+  #content-users{display:flex;}
+  
+  /* STATS */
+  .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+  .stat-num{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;margin-bottom:2px;}
+  .stat-label{font-size:11px;color:var(--muted2);}
 
-  /* Statistika */
-  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
-  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
-  .stat-num{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;margin-bottom:2px;}
-  .stat-label{font-size:12px;color:var(--muted2);}
-  .stat-card.green .stat-num{color:var(--green);}
-  .stat-card.purple .stat-num{color:var(--purple);}
-  .stat-card.red .stat-num{color:var(--red);}
+  /* USERS TAB */
+  .left-panel{padding:20px;overflow-y:auto;flex:1;}
+  .right-panel{border-left:1px solid var(--border);padding:20px;overflow-y:auto;width:340px;background:var(--surface);flex-shrink:0;}
 
-  /* Filter va qidiruv */
-  .table-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
-  .filter-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:6px 14px;border-radius:20px;background:var(--surface);border:1px solid var(--border2);color:var(--muted2);cursor:pointer;transition:.15s;}
-  .filter-btn:hover{color:var(--text);}
+  .table-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  .filter-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 12px;border-radius:20px;background:var(--surface);border:1px solid var(--border2);color:var(--muted2);cursor:pointer;}
   .filter-btn.active{background:var(--surface2);border-color:var(--muted2);color:var(--text);}
-  .search-box{flex:1;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;}
+  .search-box{flex:1;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:5px 12px;}
   .search-box input{background:none;border:none;color:var(--text);font-size:13px;outline:none;width:100%;}
   .search-box input::placeholder{color:var(--muted);}
 
-  /* Jadval */
   .user-table{width:100%;border-collapse:collapse;}
-  .user-table th{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);}
-  .user-table td{padding:12px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
+  .user-table th{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);}
+  .user-table td{padding:10px 10px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle;}
   .user-table tr:hover td{background:var(--surface2);}
   .blocked-row td{opacity:.5;}
 
-  .user-name-cell{display:flex;align-items:center;gap:10px;}
-  .role-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .user-name-cell{display:flex;align-items:center;gap:8px;}
+  .role-dot{width:7px;height:7px;border-radius:50%;}
   .role-dot.magazin{background:var(--green);}
   .role-dot.firma{background:var(--purple);}
-  .cell-name{font-size:14px;font-weight:500;color:var(--text);}
-  .cell-sub{font-size:11px;color:var(--muted2);margin-top:2px;}
+  .cell-name{font-size:13px;font-weight:500;}
+  .cell-sub{font-size:11px;color:var(--muted2);margin-top:1px;}
+  .mono{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted2);}
 
-  .role-pill{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;}
+  .role-pill{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 8px;border-radius:20px;}
   .role-pill.magazin{background:var(--green-dim);color:var(--green);border:1px solid rgba(93,202,165,.2);}
   .role-pill.firma{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(127,119,221,.2);}
 
-  .login-cell{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted2);}
-  .pass-cell{display:flex;align-items:center;gap:6px;}
-  .pass-val{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted2);}
-  .eye-btn{background:none;border:none;cursor:pointer;font-size:14px;padding:2px;}
+  .pass-val{font-family:'IBM Plex Mono',monospace;font-size:11px;}
+  .eye-btn{background:none;border:none;cursor:pointer;font-size:12px;}
 
-  .status-pill{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;}
-  .status-pill.active{background:var(--green-dim);color:var(--green);}
-  .status-pill.blocked{background:var(--red-dim);color:var(--red);}
+  .coord-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--green);cursor:pointer;padding:2px 6px;background:var(--green-dim);border-radius:4px;}
+  .coord-badge:hover{opacity:.8;}
 
-  .action-btns{display:flex;gap:6px;}
-  .btn-edit{font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;}
-  .btn-edit:hover{border-color:var(--muted2);}
-  .btn-block{font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid rgba(226,75,74,.3);background:var(--red-dim);color:var(--red);cursor:pointer;}
+  .action-btns{display:flex;gap:4px;}
+  .btn-edit{font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;}
+  .btn-block{font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid rgba(226,75,74,.3);background:var(--red-dim);color:var(--red);cursor:pointer;}
   .btn-block.unblock{border-color:rgba(93,202,165,.3);background:var(--green-dim);color:var(--green);}
 
-  /* O'NG — yangi foydalanuvchi */
-  .right-panel{border-left:1px solid var(--border);padding:24px;overflow-y:auto;background:var(--surface);}
-  .form-title{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;margin-bottom:4px;}
-  .form-subtitle{font-size:12px;color:var(--muted2);margin-bottom:20px;}
+  /* MAP TAB */
+  #content-map{flex-direction:column;}
+  .map-toolbar{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);}
+  .map-legend{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--muted2);}
+  .legend-item{display:flex;align-items:center;gap:6px;}
+  .legend-dot{width:10px;height:10px;border-radius:50%;}
+  #map{flex:1;min-height:500px;}
 
-  .form-group{display:flex;flex-direction:column;gap:7px;margin-bottom:16px;}
+  /* FORM */
+  .form-title{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;margin-bottom:4px;}
+  .form-subtitle{font-size:12px;color:var(--muted2);margin-bottom:16px;}
+  .form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
   label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
-  input,select{background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:10px 12px;outline:none;transition:.15s;width:100%;}
+  input,select{background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;width:100%;}
   input:focus,select:focus{border-color:var(--muted2);}
   input::placeholder{color:var(--muted);}
 
-  .role-select-group{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
-  .role-option{border:1px solid var(--border2);border-radius:10px;padding:12px;cursor:pointer;transition:.15s;}
-  .role-option:hover{border-color:var(--muted2);}
+  .role-select-group{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+  .role-option{border:1px solid var(--border2);border-radius:10px;padding:10px;cursor:pointer;transition:.15s;}
   .role-option.sel-magazin{border-color:var(--green);background:var(--green-dim);}
   .role-option.sel-firma{border-color:var(--purple);background:var(--purple-dim);}
-  .role-icon{font-size:18px;margin-bottom:6px;}
-  .role-name{font-size:13px;font-weight:500;margin-bottom:2px;}
-  .role-desc{font-size:11px;color:var(--muted2);}
+  .role-icon{font-size:16px;margin-bottom:4px;}
+  .role-name{font-size:12px;font-weight:500;}
+  .role-desc{font-size:10px;color:var(--muted2);}
 
-  .tuman-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
-  .tuman-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted2);cursor:pointer;transition:.15s;}
-  .tuman-tag:hover{color:var(--text);}
+  .tuman-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;}
+  .tuman-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 8px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted2);cursor:pointer;}
   .tuman-tag.active{background:var(--purple-dim);border-color:var(--purple);color:var(--purple);}
 
+  .coord-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .coord-hint{font-size:11px;color:var(--muted2);margin-top:4px;}
+  .loc-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;margin-top:4px;}
+
   .pass-wrap{position:relative;}
-  .pass-wrap input{padding-right:40px;}
-  .pass-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;}
+  .pass-wrap input{padding-right:36px;}
+  .pass-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;}
 
-  .strength-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:6px;}
-  .strength-seg{height:3px;border-radius:2px;background:var(--border2);transition:.2s;}
-  .strength-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-top:3px;}
+  .strength-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:4px;}
+  .strength-seg{height:3px;border-radius:2px;background:var(--border2);}
+  .strength-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-top:2px;}
 
-  .divider{height:1px;background:var(--border);margin:16px 0;}
+  .divider{height:1px;background:var(--border);margin:12px 0;}
 
-  .msg{border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:14px;display:none;align-items:center;gap:8px;}
+  .msg{border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:10px;display:none;align-items:center;gap:8px;}
   .msg.show{display:flex;}
   .msg.error{background:var(--red-dim);border:1px solid rgba(226,75,74,.25);color:var(--red);}
   .msg.success{background:var(--green-dim);border:1px solid rgba(93,202,165,.25);color:var(--green);}
 
-  .btn-submit{background:var(--text);color:var(--bg);border:none;border-radius:10px;padding:12px;font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;width:100%;transition:.15s;}
-  .btn-submit:hover{opacity:.9;}
+  .btn-submit{background:var(--text);color:#0D1B3E;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;width:100%;}
   .btn-submit:disabled{opacity:.4;cursor:not-allowed;}
 
   /* MODAL */
-  #editModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:20px;}
-  .modal-box{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:28px;width:100%;max-width:440px;}
-  .modal-title{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;margin-bottom:20px;}
-  .modal-actions{display:flex;gap:10px;margin-top:20px;}
-  .btn-cancel{flex:1;background:var(--surface2);color:var(--muted2);border:1px solid var(--border2);border-radius:10px;padding:12px;font-size:14px;cursor:pointer;}
-  .btn-save{flex:2;background:var(--text);color:var(--bg);border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;}
-  .edit-msg{color:var(--red);font-size:12px;margin-top:10px;display:none;}
+  #editModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center;padding:20px;}
+  .modal-box{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:24px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;}
+  .modal-title{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;margin-bottom:16px;}
+  .modal-actions{display:flex;gap:8px;margin-top:16px;}
+  .btn-cancel{flex:1;background:var(--surface2);color:var(--muted2);border:1px solid var(--border2);border-radius:10px;padding:10px;font-size:13px;cursor:pointer;}
+  .btn-save{flex:2;background:var(--text);color:#0D1B3E;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;}
+  .edit-msg{color:var(--red);font-size:12px;margin-top:8px;display:none;}
 
-  .select-tuman{width:100%;}
-
-  footer{border-top:1px solid var(--border);padding:12px 24px;display:flex;justify-content:space-between;}
+  footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify-content:space-between;flex-shrink:0;}
   .footer-text{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);}
   .online-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:6px;animation:pulse 2s infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
@@ -512,13 +618,13 @@
       <div class="logo-grid"><span></span><span></span><span></span><span></span></div>
       <div class="login-title">Interactive Savdo</div>
     </div>
-    <p style="font-size:13px;color:var(--muted2);margin-bottom:24px">Super Admin paneliga kirish</p>
+    <p style="font-size:13px;color:var(--muted2);margin-bottom:20px">Super Admin paneliga kirish</p>
     <div class="login-error" id="loginError"></div>
     <div class="form-group">
       <label>Admin Email</label>
       <input type="email" id="adminEmail" placeholder="admin@..." onkeydown="if(event.key==='Enter')doAdminLogin()">
     </div>
-    <div class="form-group" style="margin-bottom:24px">
+    <div class="form-group" style="margin-bottom:20px">
       <label>Parol</label>
       <div class="pass-wrap">
         <input type="password" id="adminPass" placeholder="Parol" onkeydown="if(event.key==='Enter')doAdminLogin()">
@@ -543,82 +649,64 @@
     </div>
   </header>
 
-  <div class="panel-body">
-    <!-- CHAP — Foydalanuvchilar -->
-    <div class="left-panel">
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-users" onclick="switchTab('users')">👥 Foydalanuvchilar</button>
+    <button class="tab-btn" id="tab-map" onclick="switchTab('map')">🗺 Xarita</button>
+  </div>
 
-      <!-- Statistika -->
+  <!-- USERS TAB -->
+  <div class="tab-content" id="content-users">
+    <div class="left-panel">
       <div class="stats-row">
-        <div class="stat-card">
-          <div class="stat-num" id="totalCount">0</div>
-          <div class="stat-label">Jami</div>
-        </div>
-        <div class="stat-card green">
-          <div class="stat-num" id="magazinCount">0</div>
-          <div class="stat-label">Magazin</div>
-        </div>
-        <div class="stat-card" style="--c:var(--purple)">
-          <div class="stat-num" id="firmaCount" style="color:var(--purple)">0</div>
-          <div class="stat-label">Firma</div>
-        </div>
-        <div class="stat-card red">
-          <div class="stat-num" id="blockedCount">0</div>
-          <div class="stat-label">Bloklangan</div>
-        </div>
+        <div class="stat-card"><div class="stat-num" id="totalCount">0</div><div class="stat-label">Jami</div></div>
+        <div class="stat-card"><div class="stat-num" id="magazinCount" style="color:var(--green)">0</div><div class="stat-label">Magazin</div></div>
+        <div class="stat-card"><div class="stat-num" id="firmaCount" style="color:var(--purple)">0</div><div class="stat-label">Firma</div></div>
+        <div class="stat-card"><div class="stat-num" id="blockedCount" style="color:var(--red)">0</div><div class="stat-label">Bloklangan</div></div>
+        <div class="stat-card"><div class="stat-num" id="mapCount" style="color:var(--amber)">0</div><div class="stat-label">Xaritada</div></div>
       </div>
 
-      <!-- Toolbar -->
       <div class="table-toolbar">
-        <button class="filter-btn active" id="filter_all"      onclick="setFilter('all')">Barchasi</button>
-        <button class="filter-btn"        id="filter_magazinEgasi" onclick="setFilter('magazinEgasi')">Magazin</button>
-        <button class="filter-btn"        id="filter_firmaAgent"   onclick="setFilter('firmaAgent')">Firma</button>
+        <button class="filter-btn active" id="filter_all" onclick="setFilter('all')">Barchasi</button>
+        <button class="filter-btn" id="filter_magazinEgasi" onclick="setFilter('magazinEgasi')">Magazin</button>
+        <button class="filter-btn" id="filter_firmaAgent" onclick="setFilter('firmaAgent')">Firma</button>
         <div class="search-box">
           <span style="color:var(--muted);font-size:13px">⌕</span>
           <input type="text" id="searchInput" placeholder="Qidirish..." oninput="doSearch()">
         </div>
       </div>
 
-      <!-- Jadval -->
       <div style="overflow-x:auto">
         <table class="user-table">
           <thead>
             <tr>
-              <th>Ism</th>
-              <th>Rol</th>
-              <th>Login</th>
-              <th>Parol</th>
-              <th>Telefon</th>
-              <th>Holat</th>
-              <th>Amallar</th>
+              <th>Ism / Magazin</th><th>Rol</th><th>Login</th>
+              <th>Parol</th><th>Telefon</th><th>Koordinata</th><th>Amal</th>
             </tr>
           </thead>
           <tbody id="userTableBody">
-            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">Yuklanmoqda...</td></tr>
+            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Yuklanmoqda...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- O'NG — Yangi foydalanuvchi -->
+    <!-- Form -->
     <div class="right-panel">
       <div class="form-title">Yangi foydalanuvchi</div>
-      <div class="form-subtitle">Magazin yoki Firma uchun kirish yarating</div>
+      <div class="form-subtitle">Magazin yoki Firma yarating</div>
 
       <div class="msg error" id="msgError"><span>⚠</span><span id="msgErrorText"></span></div>
       <div class="msg success" id="msgSuccess"><span>✓</span><span id="msgSuccessText"></span></div>
 
-      <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:8px">ROL</label>
+      <div style="margin-bottom:12px">
+        <label style="display:block;margin-bottom:6px">ROL</label>
         <div class="role-select-group">
           <div class="role-option" id="roleMagazin" onclick="selectRole('magazinEgasi')">
-            <div class="role-icon">🏪</div>
-            <div class="role-name">Magazin</div>
-            <div class="role-desc">Zakaz beradi</div>
+            <div class="role-icon">🏪</div><div class="role-name">Magazin</div><div class="role-desc">Zakaz beradi</div>
           </div>
           <div class="role-option" id="roleFirma" onclick="selectRole('firmaAgent')">
-            <div class="role-icon">🏭</div>
-            <div class="role-name">Firma</div>
-            <div class="role-desc">Mahsulot boshqaradi</div>
+            <div class="role-icon">🏭</div><div class="role-name">Firma</div><div class="role-desc">Mahsulot boshqaradi</div>
           </div>
         </div>
       </div>
@@ -627,14 +715,22 @@
         <label>Ism Familya</label>
         <input type="text" id="fullName" placeholder="Alisher Karimov">
       </div>
+
+      <div class="form-group" id="shopNameGroup" style="display:none">
+        <label>Magazin nomi</label>
+        <input type="text" id="shopName" placeholder="Nur Magazin">
+      </div>
+
       <div class="form-group">
         <label>Telefon</label>
         <input type="tel" id="phone" placeholder="+998901234567">
       </div>
+
       <div class="form-group">
         <label>Login</label>
         <input type="text" id="loginField" placeholder="alisher_k" autocomplete="off">
       </div>
+
       <div class="form-group">
         <label>Parol</label>
         <div class="pass-wrap">
@@ -647,6 +743,7 @@
         </div>
         <div class="strength-label" id="strengthLabel"></div>
       </div>
+
       <div class="form-group">
         <label>Parolni takrorlang</label>
         <input type="password" id="passConfirm" placeholder="Qayta kiriting">
@@ -673,40 +770,53 @@
         </div>
       </div>
 
+      <div class="form-group" id="coordGroup" style="display:none">
+        <label>Koordinata</label>
+        <div class="coord-row">
+          <input type="number" id="latField" placeholder="Kenglik (lat)" step="0.000001">
+          <input type="number" id="lngField" placeholder="Uzunlik (lng)" step="0.000001">
+        </div>
+        <button class="loc-btn" onclick="getMyLocation()">📍 Joriy joylashuvni olish</button>
+        <div class="coord-hint">Yoki Google Maps dan koordinata oling: O'ng klik → koordinatalar</div>
+      </div>
+
       <div class="divider"></div>
       <button class="btn-submit" id="submitBtn" onclick="createUser()">Foydalanuvchi yaratish</button>
     </div>
   </div>
 
+  <!-- MAP TAB -->
+  <div class="tab-content" id="content-map" style="flex-direction:column">
+    <div class="map-toolbar">
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#5DCAA5"></div><span>Faol magazin</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#E24B4A"></div><span>Bloklangan</span></div>
+      </div>
+      <button class="loc-btn" onclick="refreshMap()" style="margin-left:auto">🔄 Yangilash</button>
+    </div>
+    <div id="map"></div>
+  </div>
+
   <footer>
     <div class="footer-text"><span class="online-dot"></span>Qoraqalpog'iston Respublikasi · v1.0</div>
-    <div class="footer-text">Super Admin</div>
+    <div class="footer-text" id="sessionInfo2">Super Admin</div>
   </footer>
 </div>
 
 <!-- TAHRIRLASH MODAL -->
 <div id="editModal">
   <div class="modal-box">
-    <div class="modal-title">✏️ Foydalanuvchini tahrirlash</div>
+    <div class="modal-title">✏️ Tahrirlash</div>
     <input type="hidden" id="editId">
     <input type="hidden" id="editRole">
-
-    <div class="form-group">
-      <label>Ism Familya</label>
-      <input type="text" id="editName" placeholder="Ism Familya">
-    </div>
-    <div class="form-group">
-      <label>Telefon</label>
-      <input type="tel" id="editPhone" placeholder="+998...">
-    </div>
-    <div class="form-group">
-      <label>Login</label>
-      <input type="text" id="editLogin" placeholder="Login">
-    </div>
+    <div class="form-group"><label>Ism Familya</label><input type="text" id="editName"></div>
+    <div class="form-group" id="editShopNameGroup" style="display:none"><label>Magazin nomi</label><input type="text" id="editShopName"></div>
+    <div class="form-group"><label>Telefon</label><input type="tel" id="editPhone"></div>
+    <div class="form-group"><label>Login</label><input type="text" id="editLogin"></div>
     <div class="form-group">
       <label>Tuman</label>
-      <select id="editTuman" class="select-tuman">
-        <option value="">Tuman tanlang</option>
+      <select id="editTuman">
+        <option value="">Tanlang</option>
         <option>Beruniy</option><option>Bozataw</option><option>Ellikqala</option>
         <option>Kegeyli</option><option>Nokis</option><option>Qanlikol</option>
         <option>Qaraozek</option><option>Qonirat</option><option>Shimbay</option>
@@ -714,16 +824,22 @@
         <option>Tortkol</option><option>Xojeli</option><option>Amiwdarya</option>
       </select>
     </div>
+    <div class="form-group" id="editCoordGroup" style="display:none">
+      <label>Koordinata</label>
+      <div class="coord-row">
+        <input type="number" id="editLat" placeholder="Kenglik" step="0.000001">
+        <input type="number" id="editLng" placeholder="Uzunlik" step="0.000001">
+      </div>
+      <button class="loc-btn" onclick="getEditMyLocation()">📍 Joriy joylashuv</button>
+    </div>
     <div class="form-group">
-      <label>Yangi parol (o'zgartirmasangiz bo'sh qoldiring)</label>
+      <label>Yangi parol (ixtiyoriy)</label>
       <div class="pass-wrap">
-        <input type="password" id="editPass" placeholder="Yangi parol...">
+        <input type="password" id="editPass" placeholder="O'zgartirmasangiz bo'sh">
         <button class="pass-toggle" onclick="var p=document.getElementById('editPass');p.type=p.type==='password'?'text':'password'" type="button">👁</button>
       </div>
     </div>
-
     <div class="edit-msg" id="editMsg"></div>
-
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeEdit()">Bekor</button>
       <button class="btn-save" id="saveEditBtn" onclick="saveEdit()">Saqlash</button>
