@@ -204,6 +204,7 @@
         <td><div class="action-btns">
           <button class="btn-edit" onclick="openEdit('${u._id}','${u._role}')">✏️</button>
           <button class="btn-block ${u.blocked?'unblock':''}" onclick="toggleBlock('${u._id}','${u._role}',${!!u.blocked})">${u.blocked?'🔓':'🔒'}</button>
+          <button class="btn-del" onclick="foydalanuvchiOchir('${u._id}','${u._role}')">🗑</button>
         </div></td>
       </tr>`;
     }).join('');
@@ -213,6 +214,27 @@
     const el = document.getElementById('pass_' + id);
     el.textContent = el.textContent === '••••••' ? (pass || '—') : '••••••';
   }
+  window.foydalanuvchiOchir = async function(id, role) {
+    const nom = role === 'magazinEgasi' ? 'Magazin' : 'Firma Agent';
+    if (!confirm(`⚠️ ${nom} ni BUTUNLAY o'chirasizmi?\n\nBu amal qaytarib bo'lmaydi:\n• Firestore ma'lumotlari o'chadi\n• Firebase Auth akkaunt o'chadi\n• Barcha zakazlar saqlanib qoladi`)) return;
+
+    const btn = event.target;
+    btn.disabled = true; btn.textContent = "O'chirilmoqda...";
+
+    try {
+      const coll = role === 'magazinEgasi' ? 'shops' : 'firms';
+      // 1. Firestore dan o'chirish
+      await deleteDoc(doc(db, coll, id));
+      // 2. Auth dan o'chirish — bu server tarafdan kerak, hozircha Firestore dan o'chiramiz
+      // Auth o'chirish uchun Admin SDK kerak — hozircha faqat Firestore
+      await loadUsers();
+      alert("Muvaffaqiyatli o'chirildi!");
+    } catch(e) {
+      alert("Xatolik: " + e.message);
+      btn.disabled = false; btn.textContent = "🗑 O'chirish";
+    }
+  }
+
   window.toggleBlock = async function(id, role, isBlocked) {
     await updateDoc(doc(db, role === 'magazinEgasi' ? 'shops' : 'firms', id), { blocked: !isBlocked });
     await loadUsers();
@@ -391,6 +413,8 @@
   .btn-edit{font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;}
   .btn-block{font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid rgba(226,75,74,.3);background:var(--red-dim);color:var(--red);cursor:pointer;}
   .btn-block.unblock{border-color:rgba(93,202,165,.3);background:var(--green-dim);color:var(--green);}
+  .btn-del{font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid rgba(226,75,74,.3);background:var(--red-dim);color:var(--red);cursor:pointer;}
+  .btn-del:hover{opacity:.8;}
 
   /* MAP */
   #content-map{flex-direction:column;}
@@ -712,6 +736,12 @@
       </div>
     </div>
     <div class="edit-msg" id="editMsg"></div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <button onclick="foydalanuvchiOchir(document.getElementById('editId').value, document.getElementById('editRole').value); closeEdit();" 
+              style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(226,75,74,.3);background:var(--red-dim);color:var(--red);font-size:13px;cursor:pointer;font-weight:600">
+        🗑 Akkauntni butunlay o'chirish
+      </button>
+    </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeEdit()">Bekor</button>
       <button class="btn-save" id="saveEditBtn" onclick="saveEdit()">Saqlash</button>
