@@ -4,15 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Interactive Savdo — Super Admin Panel</title>
-
-<!-- Leaflet xarita -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, doc, setDoc, updateDoc, query, where, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, doc, setDoc, updateDoc, query, where, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey:            "AIzaSyBiUDdpOuF_bNRi1ZqpQCU1pRVQFvRGErg",
@@ -26,11 +24,8 @@
   const app  = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db   = getFirestore(app);
+  let map = null, markers = [];
 
-  let map = null;
-  let markers = [];
-
-  // ── Auth ──
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       const q = query(collection(db, "admin"), where("email", "==", user.email));
@@ -39,13 +34,12 @@
         showPanel(user.email);
         loadUsers();
         initMap();
+        loadXabarlar();
       } else {
         await signOut(auth);
         showLogin("Siz admin emassiz");
       }
-    } else {
-      showLogin();
-    }
+    } else { showLogin(); }
   });
 
   window.doAdminLogin = async function() {
@@ -54,24 +48,71 @@
     const btn   = document.getElementById('loginBtn');
     if (!email || !pass) { showLoginError("Email va parolni kiriting"); return; }
     btn.disabled = true; btn.textContent = "Kirish...";
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-    } catch(e) {
-      btn.disabled = false; btn.textContent = "Kirish";
-      showLoginError("Email yoki parol noto'g'ri");
-    }
+    try { await signInWithEmailAndPassword(auth, email, pass); }
+    catch(e) { btn.disabled = false; btn.textContent = "Kirish"; showLoginError("Email yoki parol noto'g'ri"); }
   }
-
   window.doLogout = async function() { await signOut(auth); }
 
-  // ── Xarita ──
+  // ── XABARLAR BOSHQARUVI ──
+  window.loadXabarlar = async function() {
+    const snap = await getDocs(collection(db, "chatTemplates"));
+    const list = document.getElementById('xabarlarList');
+    const xabarlar = [];
+    snap.forEach(d => xabarlar.push({ id: d.id, ...d.data() }));
+
+    if (xabarlar.length === 0) {
+      list.innerHTML = '<div class="empty-msg">Hali xabar shablonlari yo\'q</div>';
+      return;
+    }
+
+    // Kategoriyalar bo'yicha guruhlash
+    const kategoriyalar = {};
+    xabarlar.forEach(x => {
+      if (!kategoriyalar[x.kategoriya]) kategoriyalar[x.kategoriya] = [];
+      kategoriyalar[x.kategoriya].push(x);
+    });
+
+    list.innerHTML = Object.entries(kategoriyalar).map(([kat, items]) => `
+      <div class="kat-group">
+        <div class="kat-header">${kat}</div>
+        ${items.map(x => `
+          <div class="xabar-item">
+            <div class="xabar-rol">
+              <span class="rol-badge ${x.rol}">${x.rol === 'agent' ? 'Agent' : x.rol === 'magazin' ? 'Magazin' : 'Ikkalasi'}</span>
+            </div>
+            <div class="xabar-text">${x.matn}</div>
+            <button class="btn-del" onclick="xabarOchir('${x.id}')">✕</button>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  }
+
+  window.xabarQosh = async function() {
+    const matn     = document.getElementById('xabarMatn').value.trim();
+    const kategoriya = document.getElementById('xabarKat').value;
+    const rol      = document.getElementById('xabarRol').value;
+    if (!matn) { alert("Xabar matnini kiriting"); return; }
+
+    await addDoc(collection(db, "chatTemplates"), {
+      matn, kategoriya, rol,
+      createdAt: new Date().toISOString()
+    });
+    document.getElementById('xabarMatn').value = '';
+    loadXabarlar();
+  }
+
+  window.xabarOchir = async function(id) {
+    await deleteDoc(doc(db, "chatTemplates", id));
+    loadXabarlar();
+  }
+
+  // ── XARITA ──
   function initMap() {
     if (map) return;
     setTimeout(() => {
-      map = L.map('map').setView([42.4619, 59.6166], 9); // Nukus markazi
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
+      map = L.map('map').setView([42.4619, 59.6166], 9);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
       loadMapMarkers();
     }, 300);
   }
@@ -80,72 +121,48 @@
     if (!map) return;
     markers.forEach(m => map.removeLayer(m));
     markers = [];
-
     const snap = await getDocs(collection(db, "shops"));
     snap.forEach(docSnap => {
       const d = docSnap.data();
       if (d.lat && d.lng) {
-        const color  = d.blocked ? '#E24B4A' : '#5DCAA5';
-        const icon   = L.divIcon({
+        const color = d.blocked ? '#E24B4A' : '#5DCAA5';
+        const icon = L.divIcon({
           className: 'custom-marker',
-          html: `<div style="
-            background:${color};
-            width:36px;height:36px;
-            border-radius:50% 50% 50% 0;
-            transform:rotate(-45deg);
-            border:2px solid white;
-            box-shadow:0 2px 8px rgba(0,0,0,0.3);
-          "></div>`,
-          iconSize: [36, 36],
-          iconAnchor: [18, 36],
-          popupAnchor: [0, -36]
+          html: `<div style="background:${color};width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`,
+          iconSize: [36, 36], iconAnchor: [18, 36], popupAnchor: [0, -36]
         });
-
-        const marker = L.marker([d.lat, d.lng], { icon })
-          .addTo(map)
-          .bindPopup(`
-            <div style="font-family:sans-serif;min-width:180px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:4px">${d.shopName || d.name || 'Magazin'}</div>
-              <div style="color:#666;font-size:12px;margin-bottom:2px">👤 ${d.name || ''}</div>
-              <div style="color:#666;font-size:12px;margin-bottom:2px">📞 ${d.phone || ''}</div>
-              <div style="color:#666;font-size:12px;margin-bottom:2px">📍 ${d.tuman || ''}</div>
-              <div style="color:#666;font-size:12px;margin-bottom:6px">🔑 ${d.login || ''}</div>
-              <div style="
-                display:inline-block;
-                padding:2px 10px;
-                border-radius:20px;
-                font-size:11px;
-                background:${d.blocked ? '#fde8e8' : '#e8f8f0'};
-                color:${d.blocked ? '#E24B4A' : '#5DCAA5'};
-              ">${d.blocked ? 'Bloklangan' : 'Faol'}</div>
-            </div>
-          `);
+        const marker = L.marker([d.lat, d.lng], { icon }).addTo(map)
+          .bindPopup(`<div style="font-family:sans-serif;min-width:180px">
+            <div style="font-weight:700;font-size:14px">${d.shopName || d.name || 'Magazin'}</div>
+            <div style="color:#666;font-size:12px">👤 ${d.name || ''}</div>
+            <div style="color:#666;font-size:12px">📞 ${d.phone || ''}</div>
+            <div style="color:#666;font-size:12px">📍 ${d.tuman || ''}</div>
+          </div>`);
         markers.push(marker);
       }
     });
-
-    // Marker bo'lsa xaritani ularga moslashtirish
     if (markers.length > 0) {
       const group = L.featureGroup(markers);
       map.fitBounds(group.getBounds().pad(0.1));
     }
   }
 
-  window.refreshMap = function() {
-    loadMapMarkers();
+  window.refreshMap = function() { loadMapMarkers(); }
+  window.goToMarker = function(lat, lng) {
+    if (!map) return;
+    document.getElementById('tab-map').click();
+    setTimeout(() => { map.setView([lat, lng], 16); map.invalidateSize(); }, 200);
   }
 
-  // ── Foydalanuvchilar ──
+  // ── FOYDALANUVCHILAR ──
   window.loadUsers = async function() {
     const list = document.getElementById('userTableBody');
-    list.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#666;padding:24px">Yuklanmoqda...</td></tr>`;
-
+    list.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Yuklanmoqda...</td></tr>`;
     const users = [];
     const shopsSnap = await getDocs(collection(db, "shops"));
     shopsSnap.forEach(d => users.push({ ...d.data(), _id: d.id, _role: 'magazinEgasi' }));
     const firmsSnap = await getDocs(collection(db, "firms"));
     firmsSnap.forEach(d => users.push({ ...d.data(), _id: d.id, _role: 'firmaAgent' }));
-
     window._allUsers = users;
     renderTable(users);
     loadMapMarkers();
@@ -159,10 +176,8 @@
     if (search) filtered = filtered.filter(u =>
       (u.name||'').toLowerCase().includes(search) ||
       (u.login||'').toLowerCase().includes(search) ||
-      (u.phone||'').toLowerCase().includes(search) ||
-      (u.shopName||'').toLowerCase().includes(search)
+      (u.phone||'').toLowerCase().includes(search)
     );
-
     document.getElementById('totalCount').textContent   = users.length;
     document.getElementById('magazinCount').textContent = users.filter(u => u._role === 'magazinEgasi').length;
     document.getElementById('firmaCount').textContent   = users.filter(u => u._role === 'firmaAgent').length;
@@ -170,74 +185,40 @@
     document.getElementById('mapCount').textContent     = users.filter(u => u._role === 'magazinEgasi' && u.lat).length;
 
     const list = document.getElementById('userTableBody');
-    if (!filtered.length) {
-      list.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#666;padding:24px">Topilmadi</td></tr>`;
-      return;
-    }
-
+    if (!filtered.length) { list.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Topilmadi</td></tr>`; return; }
     list.innerHTML = filtered.map(u => {
       const isMagazin = u._role === 'magazinEgasi';
       const roleClass = isMagazin ? 'magazin' : 'firma';
       const hasCoord  = u.lat && u.lng;
-      return `
-        <tr class="${u.blocked ? 'blocked-row' : ''}">
-          <td>
-            <div class="user-name-cell">
-              <div class="role-dot ${roleClass}"></div>
-              <div>
-                <div class="cell-name">${u.shopName || u.name || '—'}</div>
-                <div class="cell-sub">${u.tuman || ''}</div>
-              </div>
-            </div>
-          </td>
-          <td><span class="role-pill ${roleClass}">${isMagazin ? 'Magazin' : 'Firma'}</span></td>
-          <td><span class="mono">${u.login || u.phone || '—'}</span></td>
-          <td>
-            <span class="mono pass-val" id="pass_${u._id}">••••••</span>
-            <button class="eye-btn" onclick="togglePass('${u._id}','${u._pass||''}')">👁</button>
-          </td>
-          <td><span class="mono">${u.phone || '—'}</span></td>
-          <td>
-            ${hasCoord
-              ? `<span class="coord-badge" onclick="goToMarker(${u.lat},${u.lng})">📍 ${parseFloat(u.lat).toFixed(4)}, ${parseFloat(u.lng).toFixed(4)}</span>`
-              : `<span style="color:#555;font-size:11px">Koordinata yo'q</span>`
-            }
-          </td>
-          <td>
-            <div class="action-btns">
-              <button class="btn-edit" onclick="openEdit('${u._id}','${u._role}')">✏️</button>
-              <button class="btn-block ${u.blocked?'unblock':''}" onclick="toggleBlock('${u._id}','${u._role}',${!!u.blocked})">
-                ${u.blocked ? '🔓' : '🔒'}
-              </button>
-            </div>
-          </td>
-        </tr>`;
+      return `<tr class="${u.blocked ? 'blocked-row' : ''}">
+        <td><div class="user-name-cell"><div class="role-dot ${roleClass}"></div><div>
+          <div class="cell-name">${u.shopName || u.name || '—'}</div>
+          <div class="cell-sub">${u.tuman || ''}</div>
+        </div></div></td>
+        <td><span class="role-pill ${roleClass}">${isMagazin ? 'Magazin' : 'Firma'}</span></td>
+        <td><span class="mono">${u.login || u.phone || '—'}</span></td>
+        <td><span class="mono pass-val" id="pass_${u._id}">••••••</span>
+          <button class="eye-btn" onclick="togglePass('${u._id}','${u._pass||''}')">👁</button></td>
+        <td><span class="mono">${u.phone || '—'}</span></td>
+        <td>${hasCoord ? `<span class="coord-badge" onclick="goToMarker(${u.lat},${u.lng})">📍 ${parseFloat(u.lat).toFixed(4)}, ${parseFloat(u.lng).toFixed(4)}</span>` : `<span style="color:var(--muted);font-size:11px">Yo'q</span>`}</td>
+        <td><div class="action-btns">
+          <button class="btn-edit" onclick="openEdit('${u._id}','${u._role}')">✏️</button>
+          <button class="btn-block ${u.blocked?'unblock':''}" onclick="toggleBlock('${u._id}','${u._role}',${!!u.blocked})">${u.blocked?'🔓':'🔒'}</button>
+        </div></td>
+      </tr>`;
     }).join('');
-  }
-
-  window.goToMarker = function(lat, lng) {
-    if (!map) return;
-    document.getElementById('tab-map').click();
-    setTimeout(() => {
-      map.setView([lat, lng], 16);
-      map.invalidateSize();
-    }, 200);
   }
 
   window.togglePass = function(id, pass) {
     const el = document.getElementById('pass_' + id);
     el.textContent = el.textContent === '••••••' ? (pass || '—') : '••••••';
   }
-
   window.toggleBlock = async function(id, role, isBlocked) {
-    const coll = role === 'magazinEgasi' ? 'shops' : 'firms';
-    await updateDoc(doc(db, coll, id), { blocked: !isBlocked });
+    await updateDoc(doc(db, role === 'magazinEgasi' ? 'shops' : 'firms', id), { blocked: !isBlocked });
     await loadUsers();
   }
-
   window.openEdit = async function(id, role) {
-    const coll = role === 'magazinEgasi' ? 'shops' : 'firms';
-    const snap = await getDoc(doc(db, coll, id));
+    const snap = await getDoc(doc(db, role === 'magazinEgasi' ? 'shops' : 'firms', id));
     const d = snap.data();
     document.getElementById('editId').value       = id;
     document.getElementById('editRole').value     = role;
@@ -254,9 +235,7 @@
     document.getElementById('editMsg').style.display = 'none';
     document.getElementById('editModal').style.display = 'flex';
   }
-
   window.closeEdit = function() { document.getElementById('editModal').style.display = 'none'; }
-
   window.saveEdit = async function() {
     const id    = document.getElementById('editId').value;
     const role  = document.getElementById('editRole').value;
@@ -272,29 +251,20 @@
     const btn = document.getElementById('saveEditBtn');
     btn.disabled = true; btn.textContent = "Saqlanmoqda...";
     try {
-      const coll = role === 'magazinEgasi' ? 'shops' : 'firms';
       const data = { name, phone, login, tuman };
       if (shop) data.shopName = shop;
       if (lat)  data.lat = parseFloat(lat);
       if (lng)  data.lng = parseFloat(lng);
       if (pass) data._pass = pass;
-      await updateDoc(doc(db, coll, id), data);
-      closeEdit();
-      await loadUsers();
+      await updateDoc(doc(db, role === 'magazinEgasi' ? 'shops' : 'firms', id), data);
+      closeEdit(); await loadUsers();
     } catch(e) { showEditMsg("Xatolik: " + e.message); }
     btn.disabled = false; btn.textContent = "Saqlash";
   }
+  function showEditMsg(t) { const el = document.getElementById('editMsg'); el.textContent = t; el.style.display = 'block'; }
 
-  function showEditMsg(t) {
-    const el = document.getElementById('editMsg');
-    el.textContent = t; el.style.display = 'block';
-  }
-
-  // ── Yangi foydalanuvchi ──
-  window.selectedRole = null;
-  window.selectedTuman = null;
-  window._currentFilter = 'all';
-
+  // ── YANGI FOYDALANUVCHI ──
+  window.selectedRole = null; window.selectedTuman = null; window._currentFilter = 'all';
   window.selectRole = function(role) {
     window.selectedRole = role;
     document.getElementById('roleMagazin').className = 'role-option' + (role==='magazinEgasi'?' sel-magazin':'');
@@ -304,171 +274,65 @@
     document.getElementById('coordGroup').style.display    = role==='magazinEgasi' ? 'block' : 'none';
     hideMsg();
   }
-
   window.selectTuman = function(el, tuman) {
     window.selectedTuman = tuman;
     document.querySelectorAll('.tuman-tag').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
   }
-
   window.createUser = async function() {
     hideMsg();
-    const role     = window.selectedRole;
-    const fullName = document.getElementById('fullName').value.trim();
-    const shopName = document.getElementById('shopName').value.trim();
-    const phone    = document.getElementById('phone').value.trim();
-    const login    = document.getElementById('loginField').value.trim().toLowerCase();
-    const pass     = document.getElementById('passField').value;
-    const passConf = document.getElementById('passConfirm').value;
-    const tuman    = window.selectedTuman;
-    const lat      = document.getElementById('latField').value.trim();
-    const lng      = document.getElementById('lngField').value.trim();
-
-    if (!role)             { showError("Rol tanlang"); return; }
-    if (!fullName)         { showError("Ism familyani kiriting"); return; }
+    const role=window.selectedRole, fullName=document.getElementById('fullName').value.trim(),
+          shopName=document.getElementById('shopName').value.trim(), phone=document.getElementById('phone').value.trim(),
+          login=document.getElementById('loginField').value.trim().toLowerCase(),
+          pass=document.getElementById('passField').value, passConf=document.getElementById('passConfirm').value,
+          tuman=window.selectedTuman, lat=document.getElementById('latField').value.trim(),
+          lng=document.getElementById('lngField').value.trim();
+    if (!role) { showError("Rol tanlang"); return; }
+    if (!fullName) { showError("Ism familyani kiriting"); return; }
     if (role==='magazinEgasi' && !shopName) { showError("Magazin nomini kiriting"); return; }
-    if (!phone)            { showError("Telefon kiriting"); return; }
-    if (login.length < 3)  { showError("Login kamida 3 belgi"); return; }
-    if (pass.length < 6)   { showError("Parol kamida 6 belgi"); return; }
-    if (pass !== passConf) { showError("Parollar mos kelmadi"); return; }
-    if (!tuman)            { showError("Tuman tanlang"); return; }
-    if (role==='magazinEgasi' && (!lat || !lng)) { showError("Koordinata kiriting"); return; }
-
+    if (!phone) { showError("Telefon kiriting"); return; }
+    if (login.length<3) { showError("Login kamida 3 belgi"); return; }
+    if (pass.length<6) { showError("Parol kamida 6 belgi"); return; }
+    if (pass!==passConf) { showError("Parollar mos kelmadi"); return; }
+    if (!tuman) { showError("Tuman tanlang"); return; }
+    if (role==='magazinEgasi' && (!lat||!lng)) { showError("Koordinata kiriting"); return; }
     const btn = document.getElementById('submitBtn');
-    btn.disabled = true; btn.textContent = "Saqlanmoqda...";
-
+    btn.disabled=true; btn.textContent="Saqlanmoqda...";
     try {
-      const email    = `${login}@interactivesavdo.uz`;
-      const userCred = await createUserWithEmailAndPassword(auth, email, pass);
-      const uid      = userCred.user.uid;
-      const coll     = role === 'magazinEgasi' ? 'shops' : 'firms';
-      const data     = {
-        name: fullName, phone, login, email,
-        tuman, role, _pass: pass, blocked: false,
-        createdAt: new Date().toISOString()
-      };
-      if (role === 'magazinEgasi') {
-        data.shopName = shopName;
-        data.lat = parseFloat(lat);
-        data.lng = parseFloat(lng);
-      }
-      await setDoc(doc(db, coll, uid), data);
-      await loadUsers();
-      resetForm();
-      showSuccess(`${fullName} muvaffaqiyatli yaratildi!`);
+      const email=`${login}@interactivesavdo.uz`;
+      const userCred=await createUserWithEmailAndPassword(auth, email, pass);
+      const uid=userCred.user.uid;
+      const coll=role==='magazinEgasi'?'shops':'firms';
+      const data={name:fullName,phone,login,email,tuman,role,_pass:pass,blocked:false,createdAt:new Date().toISOString()};
+      if(role==='magazinEgasi'){data.shopName=shopName;data.lat=parseFloat(lat);data.lng=parseFloat(lng);}
+      await setDoc(doc(db,coll,uid),data);
+      await loadUsers(); resetForm(); showSuccess(`${fullName} muvaffaqiyatli yaratildi!`);
     } catch(e) {
-      if (e.code==='auth/email-already-in-use') showError("Bu login allaqachon ishlatilmoqda");
-      else showError("Xatolik: " + e.message);
+      if(e.code==='auth/email-already-in-use') showError("Bu login allaqachon ishlatilmoqda");
+      else showError("Xatolik: "+e.message);
     }
-    btn.disabled = false; btn.textContent = "Foydalanuvchi yaratish";
+    btn.disabled=false; btn.textContent="Foydalanuvchi yaratish";
   }
-
-  window.setFilter = function(f) {
-    window._currentFilter = f;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('filter_'+f).classList.add('active');
-    renderTable(window._allUsers||[]);
-  }
-
-  window.doSearch = function() { renderTable(window._allUsers||[]); }
-
-  window.showError = function(t) {
-    document.getElementById('msgErrorText').textContent = t;
-    document.getElementById('msgError').className = 'msg error show';
-    document.getElementById('msgSuccess').className = 'msg success';
-  }
-  window.showSuccess = function(t) {
-    document.getElementById('msgSuccessText').textContent = t;
-    document.getElementById('msgSuccess').className = 'msg success show';
-    document.getElementById('msgError').className = 'msg error';
-  }
-  window.hideMsg = function() {
-    document.getElementById('msgError').className = 'msg error';
-    document.getElementById('msgSuccess').className = 'msg success';
-  }
-
-  window.resetForm = function() {
-    ['fullName','shopName','phone','loginField','passField','passConfirm','latField','lngField']
-      .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-    document.getElementById('roleMagazin').className = 'role-option';
-    document.getElementById('roleFirma').className   = 'role-option';
-    document.getElementById('tumanGroup').style.display    = 'none';
-    document.getElementById('shopNameGroup').style.display = 'none';
-    document.getElementById('coordGroup').style.display    = 'none';
-    document.querySelectorAll('.tuman-tag').forEach(t=>t.classList.remove('active'));
-    window.selectedRole=null; window.selectedTuman=null;
-  }
-
-  // Tab switching
-  window.switchTab = function(tab) {
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
-    document.getElementById('tab-'+tab).classList.add('active');
-    document.getElementById('content-'+tab).style.display='flex';
-    if (tab==='map' && map) {
-      setTimeout(()=>map.invalidateSize(), 100);
-    }
-  }
-
-  function showPanel(email) {
-    document.getElementById('loginScreen').style.display='none';
-    document.getElementById('panelScreen').style.display='flex';
-    document.getElementById('sessionInfo').textContent=email;
-  }
-  function showLogin(err) {
-    document.getElementById('loginScreen').style.display='flex';
-    document.getElementById('panelScreen').style.display='none';
-    if(err){const el=document.getElementById('loginError');el.textContent=err;el.style.display='block';}
-  }
-  function showLoginError(t) {
-    const el=document.getElementById('loginError');el.textContent=t;el.style.display='block';
-  }
-
-  window.toggleStrength = function(val) {
-    let s=0;
-    if(val.length>=6)s++;if(val.length>=10)s++;
-    if(/[A-Z0-9]/.test(val))s++;if(/[^a-zA-Z0-9]/.test(val)&&val.length>=8)s++;
-    const colors=['#E24B4A','#EF9F27','#5DCAA5','#5DCAA5'];
-    const labels=['','Zaif',"O'rtacha",'Yaxshi','Kuchli'];
-    ['s1','s2','s3','s4'].forEach((id,i)=>{
-      document.getElementById(id).style.background=i<s?colors[s-1]:'var(--border2)';
-    });
-    document.getElementById('strengthLabel').textContent=val.length>0?labels[s]:'';
-  }
-
-  // Koordinata yordamchisi
-  window.getMyLocation = function() {
-    if (!navigator.geolocation) { alert("Brauzer geolokatsiyani qo'llab-quvvatlamaydi"); return; }
-    navigator.geolocation.getCurrentPosition(pos => {
-      document.getElementById('latField').value = pos.coords.latitude.toFixed(6);
-      document.getElementById('lngField').value = pos.coords.longitude.toFixed(6);
-    }, () => alert("Joylashuvni aniqlashda xatolik"));
-  }
-
-  window.getEditMyLocation = function() {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(pos => {
-      document.getElementById('editLat').value = pos.coords.latitude.toFixed(6);
-      document.getElementById('editLng').value = pos.coords.longitude.toFixed(6);
-    });
-  }
+  window.setFilter=function(f){window._currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));document.getElementById('filter_'+f).classList.add('active');renderTable(window._allUsers||[]);}
+  window.doSearch=function(){renderTable(window._allUsers||[]);}
+  window.showError=function(t){document.getElementById('msgErrorText').textContent=t;document.getElementById('msgError').className='msg error show';document.getElementById('msgSuccess').className='msg success';}
+  window.showSuccess=function(t){document.getElementById('msgSuccessText').textContent=t;document.getElementById('msgSuccess').className='msg success show';document.getElementById('msgError').className='msg error';}
+  window.hideMsg=function(){document.getElementById('msgError').className='msg error';document.getElementById('msgSuccess').className='msg success';}
+  window.resetForm=function(){['fullName','shopName','phone','loginField','passField','passConfirm','latField','lngField'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('roleMagazin').className='role-option';document.getElementById('roleFirma').className='role-option';document.getElementById('tumanGroup').style.display='none';document.getElementById('shopNameGroup').style.display='none';document.getElementById('coordGroup').style.display='none';document.querySelectorAll('.tuman-tag').forEach(t=>t.classList.remove('active'));window.selectedRole=null;window.selectedTuman=null;}
+  window.toggleStrength=function(val){let s=0;if(val.length>=6)s++;if(val.length>=10)s++;if(/[A-Z0-9]/.test(val))s++;if(/[^a-zA-Z0-9]/.test(val)&&val.length>=8)s++;const colors=['#E24B4A','#EF9F27','#5DCAA5','#5DCAA5'];const labels=['','Zaif',"O'rtacha",'Yaxshi','Kuchli'];['s1','s2','s3','s4'].forEach((id,i)=>{document.getElementById(id).style.background=i<s?colors[s-1]:'var(--border2)';});document.getElementById('strengthLabel').textContent=val.length>0?labels[s]:'';}
+  window.switchTab=function(tab){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');document.getElementById('tab-'+tab).classList.add('active');document.getElementById('content-'+tab).style.display='flex';if(tab==='map'&&map)setTimeout(()=>map.invalidateSize(),100);}
+  function showPanel(email){document.getElementById('loginScreen').style.display='none';document.getElementById('panelScreen').style.display='flex';document.getElementById('sessionInfo').textContent=email;}
+  function showLogin(err){document.getElementById('loginScreen').style.display='flex';document.getElementById('panelScreen').style.display='none';if(err){const el=document.getElementById('loginError');el.textContent=err;el.style.display='block';}}
+  function showLoginError(t){const el=document.getElementById('loginError');el.textContent=t;el.style.display='block';}
+  window.getMyLocation=function(){if(!navigator.geolocation)return;navigator.geolocation.getCurrentPosition(pos=>{document.getElementById('latField').value=pos.coords.latitude.toFixed(6);document.getElementById('lngField').value=pos.coords.longitude.toFixed(6);});}
+  window.getEditMyLocation=function(){if(!navigator.geolocation)return;navigator.geolocation.getCurrentPosition(pos=>{document.getElementById('editLat').value=pos.coords.latitude.toFixed(6);document.getElementById('editLng').value=pos.coords.longitude.toFixed(6);});}
 </script>
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
-  :root {
-    --bg:#0f0f10;--surface:#1a1a1c;--surface2:#222224;
-    --border:#2a2a2d;--border2:#333336;
-    --text:#f0f0f0;--muted:#555;--muted2:#888;
-    --green:#5DCAA5;--green-dim:rgba(93,202,165,0.12);
-    --purple:#7F77DD;--purple-dim:rgba(127,119,221,0.12);
-    --red:#E24B4A;--red-dim:rgba(226,75,74,0.12);
-    --amber:#EF9F27;
-  }
+  :root{--bg:#0f0f10;--surface:#1a1a1c;--surface2:#222224;--border:#2a2a2d;--border2:#333336;--text:#f0f0f0;--muted:#555;--muted2:#888;--green:#5DCAA5;--green-dim:rgba(93,202,165,0.12);--purple:#7F77DD;--purple-dim:rgba(127,119,221,0.12);--red:#E24B4A;--red-dim:rgba(226,75,74,0.12);--amber:#EF9F27;}
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;min-height:100vh;}
-
-  /* LOGIN */
   #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
   .login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:400px;}
   .login-logo{display:flex;align-items:center;gap:12px;margin-bottom:28px;}
@@ -477,8 +341,6 @@
   .logo-grid span:nth-child(3){opacity:.4;}.logo-grid span:nth-child(4){opacity:.7;}
   .login-title{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;}
   .login-error{background:var(--red-dim);border:1px solid rgba(226,75,74,.25);color:var(--red);font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:16px;display:none;}
-
-  /* PANEL */
   #panelScreen{display:none;flex-direction:column;min-height:100vh;}
   header{border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;background:var(--surface);flex-shrink:0;}
   .header-left{display:flex;align-items:center;gap:12px;}
@@ -487,69 +349,79 @@
   .header-right{display:flex;align-items:center;gap:10px;}
   .header-badge{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--red);background:var(--red-dim);border:1px solid rgba(226,75,74,.25);padding:3px 10px;border-radius:4px;}
   .logout-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted2);background:var(--surface2);border:1px solid var(--border2);padding:4px 12px;border-radius:6px;cursor:pointer;}
-
-  /* TABS */
   .tab-bar{display:flex;gap:4px;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;}
   .tab-btn{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:7px 18px;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--muted2);cursor:pointer;transition:.15s;}
-  .tab-btn:hover{color:var(--text);}
   .tab-btn.active{background:var(--surface2);border-color:var(--muted2);color:var(--text);}
-
   .tab-content{display:none;flex:1;overflow:hidden;}
   #content-users{display:flex;}
-  
+  #content-messages{display:flex;flex-direction:column;}
+
   /* STATS */
   .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
   .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
   .stat-num{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;margin-bottom:2px;}
   .stat-label{font-size:11px;color:var(--muted2);}
 
-  /* USERS TAB */
+  /* USERS */
   .left-panel{padding:20px;overflow-y:auto;flex:1;}
   .right-panel{border-left:1px solid var(--border);padding:20px;overflow-y:auto;width:340px;background:var(--surface);flex-shrink:0;}
-
   .table-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
   .filter-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 12px;border-radius:20px;background:var(--surface);border:1px solid var(--border2);color:var(--muted2);cursor:pointer;}
   .filter-btn.active{background:var(--surface2);border-color:var(--muted2);color:var(--text);}
   .search-box{flex:1;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:5px 12px;}
   .search-box input{background:none;border:none;color:var(--text);font-size:13px;outline:none;width:100%;}
   .search-box input::placeholder{color:var(--muted);}
-
   .user-table{width:100%;border-collapse:collapse;}
   .user-table th{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);}
-  .user-table td{padding:10px 10px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle;}
+  .user-table td{padding:10px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle;}
   .user-table tr:hover td{background:var(--surface2);}
   .blocked-row td{opacity:.5;}
-
   .user-name-cell{display:flex;align-items:center;gap:8px;}
   .role-dot{width:7px;height:7px;border-radius:50%;}
-  .role-dot.magazin{background:var(--green);}
-  .role-dot.firma{background:var(--purple);}
-  .cell-name{font-size:13px;font-weight:500;}
-  .cell-sub{font-size:11px;color:var(--muted2);margin-top:1px;}
+  .role-dot.magazin{background:var(--green);}.role-dot.firma{background:var(--purple);}
+  .cell-name{font-size:13px;font-weight:500;}.cell-sub{font-size:11px;color:var(--muted2);margin-top:1px;}
   .mono{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted2);}
-
   .role-pill{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 8px;border-radius:20px;}
   .role-pill.magazin{background:var(--green-dim);color:var(--green);border:1px solid rgba(93,202,165,.2);}
   .role-pill.firma{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(127,119,221,.2);}
-
   .pass-val{font-family:'IBM Plex Mono',monospace;font-size:11px;}
   .eye-btn{background:none;border:none;cursor:pointer;font-size:12px;}
-
   .coord-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--green);cursor:pointer;padding:2px 6px;background:var(--green-dim);border-radius:4px;}
-  .coord-badge:hover{opacity:.8;}
-
   .action-btns{display:flex;gap:4px;}
   .btn-edit{font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;}
   .btn-block{font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid rgba(226,75,74,.3);background:var(--red-dim);color:var(--red);cursor:pointer;}
   .btn-block.unblock{border-color:rgba(93,202,165,.3);background:var(--green-dim);color:var(--green);}
 
-  /* MAP TAB */
+  /* MAP */
   #content-map{flex-direction:column;}
   .map-toolbar{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);}
-  .map-legend{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--muted2);}
-  .legend-item{display:flex;align-items:center;gap:6px;}
-  .legend-dot{width:10px;height:10px;border-radius:50%;}
   #map{flex:1;min-height:500px;}
+
+  /* XABARLAR */
+  .messages-container{display:grid;grid-template-columns:1fr 380px;flex:1;overflow:hidden;}
+  .messages-left{padding:24px;overflow-y:auto;}
+  .messages-right{border-left:1px solid var(--border);background:var(--surface);padding:24px;overflow-y:auto;}
+  .messages-title{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;margin-bottom:4px;}
+  .messages-sub{font-size:13px;color:var(--muted2);margin-bottom:20px;}
+  .kat-group{margin-bottom:20px;}
+  .kat-header{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .xabar-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:10px;margin-bottom:6px;}
+  .xabar-rol{flex-shrink:0;}
+  .rol-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 8px;border-radius:20px;}
+  .rol-badge.agent{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(127,119,221,.2);}
+  .rol-badge.magazin{background:var(--green-dim);color:var(--green);border:1px solid rgba(93,202,165,.2);}
+  .rol-badge.hammasi{background:rgba(239,159,39,.12);color:var(--amber);border:1px solid rgba(239,159,39,.2);}
+  .xabar-text{flex:1;font-size:13px;color:var(--text);}
+  .btn-del{background:none;border:none;color:var(--muted2);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px;}
+  .btn-del:hover{color:var(--red);background:var(--red-dim);}
+  .empty-msg{text-align:center;color:var(--muted);padding:32px;font-size:13px;}
+  .add-xabar-form{display:flex;flex-direction:column;gap:12px;}
+  .add-xabar-form textarea{background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:12px;outline:none;resize:vertical;min-height:80px;}
+  .add-xabar-form textarea:focus{border-color:var(--muted2);}
+  .add-xabar-form select{background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:10px 12px;outline:none;}
+  .preset-kats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;}
+  .preset-kat{font-size:12px;padding:4px 10px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted2);cursor:pointer;}
+  .preset-kat:hover{color:var(--text);}
 
   /* FORM */
   .form-title{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;margin-bottom:4px;}
@@ -559,38 +431,26 @@
   input,select{background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;width:100%;}
   input:focus,select:focus{border-color:var(--muted2);}
   input::placeholder{color:var(--muted);}
-
   .role-select-group{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
   .role-option{border:1px solid var(--border2);border-radius:10px;padding:10px;cursor:pointer;transition:.15s;}
   .role-option.sel-magazin{border-color:var(--green);background:var(--green-dim);}
   .role-option.sel-firma{border-color:var(--purple);background:var(--purple-dim);}
-  .role-icon{font-size:16px;margin-bottom:4px;}
-  .role-name{font-size:12px;font-weight:500;}
-  .role-desc{font-size:10px;color:var(--muted2);}
-
+  .role-icon{font-size:16px;margin-bottom:4px;}.role-name{font-size:12px;font-weight:500;}.role-desc{font-size:10px;color:var(--muted2);}
   .tuman-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;}
   .tuman-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 8px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted2);cursor:pointer;}
   .tuman-tag.active{background:var(--purple-dim);border-color:var(--purple);color:var(--purple);}
-
   .coord-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .coord-hint{font-size:11px;color:var(--muted2);margin-top:4px;}
   .loc-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;margin-top:4px;}
-
-  .pass-wrap{position:relative;}
-  .pass-wrap input{padding-right:36px;}
+  .pass-wrap{position:relative;}.pass-wrap input{padding-right:36px;}
   .pass-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;}
-
   .strength-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:4px;}
   .strength-seg{height:3px;border-radius:2px;background:var(--border2);}
   .strength-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-top:2px;}
-
   .divider{height:1px;background:var(--border);margin:12px 0;}
-
   .msg{border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:10px;display:none;align-items:center;gap:8px;}
   .msg.show{display:flex;}
   .msg.error{background:var(--red-dim);border:1px solid rgba(226,75,74,.25);color:var(--red);}
   .msg.success{background:var(--green-dim);border:1px solid rgba(93,202,165,.25);color:var(--green);}
-
   .btn-submit{background:var(--text);color:#0D1B3E;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;width:100%;}
   .btn-submit:disabled{opacity:.4;cursor:not-allowed;}
 
@@ -649,10 +509,10 @@
     </div>
   </header>
 
-  <!-- TABS -->
   <div class="tab-bar">
-    <button class="tab-btn active" id="tab-users" onclick="switchTab('users')">👥 Foydalanuvchilar</button>
-    <button class="tab-btn" id="tab-map" onclick="switchTab('map')">🗺 Xarita</button>
+    <button class="tab-btn active" id="tab-users"    onclick="switchTab('users')">👥 Foydalanuvchilar</button>
+    <button class="tab-btn"        id="tab-map"      onclick="switchTab('map')">🗺 Xarita</button>
+    <button class="tab-btn"        id="tab-messages" onclick="switchTab('messages')">💬 Chat shablonlari</button>
   </div>
 
   <!-- USERS TAB -->
@@ -665,121 +525,70 @@
         <div class="stat-card"><div class="stat-num" id="blockedCount" style="color:var(--red)">0</div><div class="stat-label">Bloklangan</div></div>
         <div class="stat-card"><div class="stat-num" id="mapCount" style="color:var(--amber)">0</div><div class="stat-label">Xaritada</div></div>
       </div>
-
       <div class="table-toolbar">
-        <button class="filter-btn active" id="filter_all" onclick="setFilter('all')">Barchasi</button>
-        <button class="filter-btn" id="filter_magazinEgasi" onclick="setFilter('magazinEgasi')">Magazin</button>
-        <button class="filter-btn" id="filter_firmaAgent" onclick="setFilter('firmaAgent')">Firma</button>
+        <button class="filter-btn active" id="filter_all"          onclick="setFilter('all')">Barchasi</button>
+        <button class="filter-btn"        id="filter_magazinEgasi" onclick="setFilter('magazinEgasi')">Magazin</button>
+        <button class="filter-btn"        id="filter_firmaAgent"   onclick="setFilter('firmaAgent')">Firma</button>
         <div class="search-box">
           <span style="color:var(--muted);font-size:13px">⌕</span>
           <input type="text" id="searchInput" placeholder="Qidirish..." oninput="doSearch()">
         </div>
       </div>
-
       <div style="overflow-x:auto">
         <table class="user-table">
-          <thead>
-            <tr>
-              <th>Ism / Magazin</th><th>Rol</th><th>Login</th>
-              <th>Parol</th><th>Telefon</th><th>Koordinata</th><th>Amal</th>
-            </tr>
-          </thead>
-          <tbody id="userTableBody">
-            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Yuklanmoqda...</td></tr>
-          </tbody>
+          <thead><tr><th>Ism/Magazin</th><th>Rol</th><th>Login</th><th>Parol</th><th>Telefon</th><th>Koordinata</th><th>Amal</th></tr></thead>
+          <tbody id="userTableBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Yuklanmoqda...</td></tr></tbody>
         </table>
       </div>
     </div>
 
-    <!-- Form -->
     <div class="right-panel">
       <div class="form-title">Yangi foydalanuvchi</div>
       <div class="form-subtitle">Magazin yoki Firma yarating</div>
-
       <div class="msg error" id="msgError"><span>⚠</span><span id="msgErrorText"></span></div>
       <div class="msg success" id="msgSuccess"><span>✓</span><span id="msgSuccessText"></span></div>
-
       <div style="margin-bottom:12px">
         <label style="display:block;margin-bottom:6px">ROL</label>
         <div class="role-select-group">
-          <div class="role-option" id="roleMagazin" onclick="selectRole('magazinEgasi')">
-            <div class="role-icon">🏪</div><div class="role-name">Magazin</div><div class="role-desc">Zakaz beradi</div>
-          </div>
-          <div class="role-option" id="roleFirma" onclick="selectRole('firmaAgent')">
-            <div class="role-icon">🏭</div><div class="role-name">Firma</div><div class="role-desc">Mahsulot boshqaradi</div>
-          </div>
+          <div class="role-option" id="roleMagazin" onclick="selectRole('magazinEgasi')"><div class="role-icon">🏪</div><div class="role-name">Magazin</div><div class="role-desc">Zakaz beradi</div></div>
+          <div class="role-option" id="roleFirma"   onclick="selectRole('firmaAgent')"><div class="role-icon">🏭</div><div class="role-name">Firma</div><div class="role-desc">Mahsulot boshqaradi</div></div>
         </div>
       </div>
-
-      <div class="form-group">
-        <label>Ism Familya</label>
-        <input type="text" id="fullName" placeholder="Alisher Karimov">
-      </div>
-
-      <div class="form-group" id="shopNameGroup" style="display:none">
-        <label>Magazin nomi</label>
-        <input type="text" id="shopName" placeholder="Nur Magazin">
-      </div>
-
-      <div class="form-group">
-        <label>Telefon</label>
-        <input type="tel" id="phone" placeholder="+998901234567">
-      </div>
-
-      <div class="form-group">
-        <label>Login</label>
-        <input type="text" id="loginField" placeholder="alisher_k" autocomplete="off">
-      </div>
-
+      <div class="form-group"><label>Ism Familya</label><input type="text" id="fullName" placeholder="Alisher Karimov"></div>
+      <div class="form-group" id="shopNameGroup" style="display:none"><label>Magazin nomi</label><input type="text" id="shopName" placeholder="Nur Magazin"></div>
+      <div class="form-group"><label>Telefon</label><input type="tel" id="phone" placeholder="+998901234567"></div>
+      <div class="form-group"><label>Login</label><input type="text" id="loginField" placeholder="alisher_k" autocomplete="off"></div>
       <div class="form-group">
         <label>Parol</label>
         <div class="pass-wrap">
           <input type="password" id="passField" placeholder="Kamida 6 belgi" oninput="toggleStrength(this.value)">
           <button class="pass-toggle" onclick="var p=document.getElementById('passField');p.type=p.type==='password'?'text':'password'" type="button">👁</button>
         </div>
-        <div class="strength-bar">
-          <div class="strength-seg" id="s1"></div><div class="strength-seg" id="s2"></div>
-          <div class="strength-seg" id="s3"></div><div class="strength-seg" id="s4"></div>
-        </div>
+        <div class="strength-bar"><div class="strength-seg" id="s1"></div><div class="strength-seg" id="s2"></div><div class="strength-seg" id="s3"></div><div class="strength-seg" id="s4"></div></div>
         <div class="strength-label" id="strengthLabel"></div>
       </div>
-
-      <div class="form-group">
-        <label>Parolni takrorlang</label>
-        <input type="password" id="passConfirm" placeholder="Qayta kiriting">
-      </div>
-
+      <div class="form-group"><label>Parolni takrorlang</label><input type="password" id="passConfirm" placeholder="Qayta kiriting"></div>
       <div class="form-group" id="tumanGroup" style="display:none">
         <label>Tuman</label>
         <div class="tuman-tags">
-          <div class="tuman-tag" onclick="selectTuman(this,'Beruniy')">Beruniy</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Bozataw')">Bozataw</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Ellikqala')">Ellikqala</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Kegeyli')">Kegeyli</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Nokis')">Nokis</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Qanlikol')">Qanlikol</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Qaraozek')">Qaraozek</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Qonirat')">Qonirat</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Shimbay')">Shimbay</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Shomanay')">Shomanay</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Taqiyatas')">Taqiyatas</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Taxtakopir')">Taxtakopir</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Tortkol')">Tortkol</div>
-          <div class="tuman-tag" onclick="selectTuman(this,'Xojeli')">Xojeli</div>
+          <div class="tuman-tag" onclick="selectTuman(this,'Beruniy')">Beruniy</div><div class="tuman-tag" onclick="selectTuman(this,'Bozataw')">Bozataw</div>
+          <div class="tuman-tag" onclick="selectTuman(this,'Ellikqala')">Ellikqala</div><div class="tuman-tag" onclick="selectTuman(this,'Kegeyli')">Kegeyli</div>
+          <div class="tuman-tag" onclick="selectTuman(this,'Nokis')">Nokis</div><div class="tuman-tag" onclick="selectTuman(this,'Qanlikol')">Qanlikol</div>
+          <div class="tuman-tag" onclick="selectTuman(this,'Qaraozek')">Qaraozek</div><div class="tuman-tag" onclick="selectTuman(this,'Qonirat')">Qonirat</div>
+          <div class="tuman-tag" onclick="selectTuman(this,'Shimbay')">Shimbay</div><div class="tuman-tag" onclick="selectTuman(this,'Shomanay')">Shomanay</div>
+          <div class="tuman-tag" onclick="selectTuman(this,'Taqiyatas')">Taqiyatas</div><div class="tuman-tag" onclick="selectTuman(this,'Taxtakopir')">Taxtakopir</div>
+          <div class="tuman-tag" onclick="selectTuman(this,'Tortkol')">Tortkol</div><div class="tuman-tag" onclick="selectTuman(this,'Xojeli')">Xojeli</div>
           <div class="tuman-tag" onclick="selectTuman(this,'Amiwdarya')">Amiwdarya</div>
         </div>
       </div>
-
       <div class="form-group" id="coordGroup" style="display:none">
         <label>Koordinata</label>
         <div class="coord-row">
-          <input type="number" id="latField" placeholder="Kenglik (lat)" step="0.000001">
-          <input type="number" id="lngField" placeholder="Uzunlik (lng)" step="0.000001">
+          <input type="number" id="latField" placeholder="Kenglik" step="0.000001">
+          <input type="number" id="lngField" placeholder="Uzunlik" step="0.000001">
         </div>
-        <button class="loc-btn" onclick="getMyLocation()">📍 Joriy joylashuvni olish</button>
-        <div class="coord-hint">Yoki Google Maps dan koordinata oling: O'ng klik → koordinatalar</div>
+        <button class="loc-btn" onclick="getMyLocation()">📍 Joriy joylashuv</button>
       </div>
-
       <div class="divider"></div>
       <button class="btn-submit" id="submitBtn" onclick="createUser()">Foydalanuvchi yaratish</button>
     </div>
@@ -788,13 +597,78 @@
   <!-- MAP TAB -->
   <div class="tab-content" id="content-map" style="flex-direction:column">
     <div class="map-toolbar">
-      <div class="map-legend">
-        <div class="legend-item"><div class="legend-dot" style="background:#5DCAA5"></div><span>Faol magazin</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#E24B4A"></div><span>Bloklangan</span></div>
+      <div style="display:flex;align-items:center;gap:16px;font-size:12px;color:var(--muted2)">
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:10px;height:10px;border-radius:50%;background:var(--green)"></div><span>Faol</span></div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:10px;height:10px;border-radius:50%;background:var(--red)"></div><span>Bloklangan</span></div>
       </div>
       <button class="loc-btn" onclick="refreshMap()" style="margin-left:auto">🔄 Yangilash</button>
     </div>
     <div id="map"></div>
+  </div>
+
+  <!-- CHAT SHABLONLARI TAB -->
+  <div class="tab-content" id="content-messages">
+    <div class="messages-container">
+      <!-- Chap: mavjud shablonlar -->
+      <div class="messages-left">
+        <div class="messages-title">💬 Chat shablonlari</div>
+        <div class="messages-sub">Foydalanuvchilar faqat mana shu tayyor xabarlardan tanlaydi</div>
+        <div id="xabarlarList">
+          <div class="empty-msg">Yuklanmoqda...</div>
+        </div>
+      </div>
+
+      <!-- O'ng: yangi shablon qo'shish -->
+      <div class="messages-right">
+        <div class="form-title">Yangi shablon qo'shish</div>
+        <div class="messages-sub">Agent va magazin uchun tayyor xabar yozing</div>
+
+        <div class="add-xabar-form">
+          <div class="form-group">
+            <label>Kategoriya</label>
+            <div class="preset-kats" style="margin-bottom:6px">
+              <span class="preset-kat" onclick="document.getElementById('xabarKat').value=this.textContent">Zakaz haqida</span>
+              <span class="preset-kat" onclick="document.getElementById('xabarKat').value=this.textContent">Yetkazish</span>
+              <span class="preset-kat" onclick="document.getElementById('xabarKat').value=this.textContent">To'lov</span>
+              <span class="preset-kat" onclick="document.getElementById('xabarKat').value=this.textContent">Mahsulot</span>
+              <span class="preset-kat" onclick="document.getElementById('xabarKat').value=this.textContent">Umumiy</span>
+            </div>
+            <input type="text" id="xabarKat" placeholder="Kategoriya nomi" value="Zakaz haqida">
+          </div>
+
+          <div class="form-group">
+            <label>Kim yuboradi</label>
+            <select id="xabarRol">
+              <option value="hammasi">Ikkalasi ham</option>
+              <option value="agent">Faqat Agent</option>
+              <option value="magazin">Faqat Magazin</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Xabar matni</label>
+            <textarea id="xabarMatn" placeholder="Masalan: Zakazingiz qabul qilindi, tez orada yetkaziladi"></textarea>
+          </div>
+
+          <button class="btn-submit" onclick="xabarQosh()">+ Shablon qo'shish</button>
+        </div>
+
+        <div class="divider" style="margin:20px 0"></div>
+
+        <!-- Tavsiya etilgan shablonlar -->
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.8px">TAVSIYA ETILGAN</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="loc-btn" style="text-align:left;padding:8px 12px" onclick="document.getElementById('xabarMatn').value='Zakazingiz qabul qilindi ✓'">Zakazingiz qabul qilindi ✓</button>
+          <button class="loc-btn" style="text-align:left;padding:8px 12px" onclick="document.getElementById('xabarMatn').value='Mahsulotlar tayyor, yetkazilmoqda 🚗'">Mahsulotlar tayyor, yetkazilmoqda 🚗</button>
+          <button class="loc-btn" style="text-align:left;padding:8px 12px" onclick="document.getElementById('xabarMatn').value='Zakazni tasdiqlaysizmi?'">Zakazni tasdiqlaysizmi?</button>
+          <button class="loc-btn" style="text-align:left;padding:8px 12px" onclick="document.getElementById('xabarMatn').value='Iltimos, manzilni aniqroq ko\'rsating'">Iltimos, manzilni aniqroq ko'rsating</button>
+          <button class="loc-btn" style="text-align:left;padding:8px 12px" onclick="document.getElementById('xabarMatn').value='Bugun yetkazib berish imkoni yo\'q, ertaga bo\'ladi'">Bugun yetkazib berish imkoni yo'q, ertaga bo'ladi</button>
+          <button class="loc-btn" style="text-align:left;padding:8px 12px" onclick="document.getElementById('xabarMatn').value='Mahsulot hozir mavjud emas'">Mahsulot hozir mavjud emas</button>
+          <button class="loc-btn" style="text-align:left;padding:8px 12px" onclick="document.getElementById('xabarMatn').value='Miqdorni o\'zgartirishingiz mumkin'">Miqdorni o'zgartirishingiz mumkin</button>
+          <button class="loc-btn" style="text-align:left;padding:8px 12px" onclick="document.getElementById('xabarMatn').value='Rahmat! Keyingi safar ham xizmatdan foydalaning 🙏'">Rahmat! Keyingi safar ham xizmatdan foydalaning 🙏</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <footer>
@@ -807,8 +681,7 @@
 <div id="editModal">
   <div class="modal-box">
     <div class="modal-title">✏️ Tahrirlash</div>
-    <input type="hidden" id="editId">
-    <input type="hidden" id="editRole">
+    <input type="hidden" id="editId"><input type="hidden" id="editRole">
     <div class="form-group"><label>Ism Familya</label><input type="text" id="editName"></div>
     <div class="form-group" id="editShopNameGroup" style="display:none"><label>Magazin nomi</label><input type="text" id="editShopName"></div>
     <div class="form-group"><label>Telefon</label><input type="tel" id="editPhone"></div>
@@ -817,10 +690,9 @@
       <label>Tuman</label>
       <select id="editTuman">
         <option value="">Tanlang</option>
-        <option>Beruniy</option><option>Bozataw</option><option>Ellikqala</option>
-        <option>Kegeyli</option><option>Nokis</option><option>Qanlikol</option>
-        <option>Qaraozek</option><option>Qonirat</option><option>Shimbay</option>
-        <option>Shomanay</option><option>Taqiyatas</option><option>Taxtakopir</option>
+        <option>Beruniy</option><option>Bozataw</option><option>Ellikqala</option><option>Kegeyli</option>
+        <option>Nokis</option><option>Qanlikol</option><option>Qaraozek</option><option>Qonirat</option>
+        <option>Shimbay</option><option>Shomanay</option><option>Taqiyatas</option><option>Taxtakopir</option>
         <option>Tortkol</option><option>Xojeli</option><option>Amiwdarya</option>
       </select>
     </div>
@@ -846,6 +718,5 @@
     </div>
   </div>
 </div>
-
 </body>
 </html>
