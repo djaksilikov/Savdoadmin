@@ -316,7 +316,7 @@
     if (login.length<3) { showError("Login kamida 3 belgi"); return; }
     if (pass.length<6) { showError("Parol kamida 6 belgi"); return; }
     if (pass!==passConf) { showError("Parollar mos kelmadi"); return; }
-    if (!tuman) { showError("Tuman tanlang"); return; }
+    if (role==='magazinEgasi' && !tuman) { showError("Tuman tanlang"); return; }
     if (role==='magazinEgasi' && (!lat||!lng)) { showError("Koordinata kiriting"); return; }
     const btn = document.getElementById('submitBtn');
     btn.disabled=true; btn.textContent="Saqlanmoqda...";
@@ -325,7 +325,8 @@
       const userCred=await createUserWithEmailAndPassword(auth, email, pass);
       const uid=userCred.user.uid;
       const coll=role==='magazinEgasi'?'shops':'firms';
-      const data={name:fullName,phone,login,email,tuman,role,_pass:pass,blocked:false,createdAt:new Date().toISOString()};
+      const data={name:fullName,phone,login,email,role,_pass:pass,blocked:false,createdAt:new Date().toISOString()};
+      if(role==='magazinEgasi') data.tuman = tuman;
       if(role==='magazinEgasi'){data.shopName=shopName;data.lat=parseFloat(lat);data.lng=parseFloat(lng);}
       await setDoc(doc(db,coll,uid),data);
       await loadUsers(); resetForm(); showSuccess(`${fullName} muvaffaqiyatli yaratildi!`);
