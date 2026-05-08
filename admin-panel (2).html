@@ -428,6 +428,18 @@
   function showLoginError(t){const el=document.getElementById('loginError');el.textContent=t;el.style.display='block';}
   window.getMyLocation=function(){if(!navigator.geolocation)return;navigator.geolocation.getCurrentPosition(pos=>{document.getElementById('latField').value=pos.coords.latitude.toFixed(6);document.getElementById('lngField').value=pos.coords.longitude.toFixed(6);});}
   window.getEditMyLocation=function(){if(!navigator.geolocation)return;navigator.geolocation.getCurrentPosition(pos=>{document.getElementById('editLat').value=pos.coords.latitude.toFixed(6);document.getElementById('editLng').value=pos.coords.longitude.toFixed(6);});}
+
+  // DOM ga event listenerlar qo'shish
+  document.addEventListener('DOMContentLoaded', () => {
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) loginBtn.addEventListener('click', doAdminLogin);
+
+    const adminEmail = document.getElementById('adminEmail');
+    if (adminEmail) adminEmail.addEventListener('keydown', e => { if(e.key==='Enter') doAdminLogin(); });
+
+    const adminPass = document.getElementById('adminPass');
+    if (adminPass) adminPass.addEventListener('keydown', e => { if(e.key==='Enter') doAdminLogin(); });
+  });
 </script>
 
 <style>
@@ -606,16 +618,16 @@
     <div class="login-error" id="loginError"></div>
     <div class="form-group">
       <label>Admin Email</label>
-      <input type="email" id="adminEmail" placeholder="admin@..." onkeydown="if(event.key==='Enter')doAdminLogin()">
+      <input type="email" id="adminEmail" placeholder="admin@...">
     </div>
     <div class="form-group" style="margin-bottom:20px">
       <label>Parol</label>
       <div class="pass-wrap">
-        <input type="password" id="adminPass" placeholder="Parol" onkeydown="if(event.key==='Enter')doAdminLogin()">
+        <input type="password" id="adminPass" placeholder="Parol">
         <button class="pass-toggle" onclick="var p=document.getElementById('adminPass');p.type=p.type==='password'?'text':'password'" type="button">👁</button>
       </div>
     </div>
-    <button class="btn-submit" id="loginBtn" onclick="doAdminLogin()">Kirish</button>
+    <button class="btn-submit" id="loginBtn">Kirish</button>
   </div>
 </div>
 
