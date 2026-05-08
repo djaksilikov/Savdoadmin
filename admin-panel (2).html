@@ -343,7 +343,86 @@
   window.hideMsg=function(){document.getElementById('msgError').className='msg error';document.getElementById('msgSuccess').className='msg success';}
   window.resetForm=function(){['fullName','shopName','phone','loginField','passField','passConfirm','latField','lngField'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('roleMagazin').className='role-option';document.getElementById('roleFirma').className='role-option';document.getElementById('tumanGroup').style.display='none';document.getElementById('shopNameGroup').style.display='none';document.getElementById('coordGroup').style.display='none';document.querySelectorAll('.tuman-tag').forEach(t=>t.classList.remove('active'));window.selectedRole=null;window.selectedTuman=null;}
   window.toggleStrength=function(val){let s=0;if(val.length>=6)s++;if(val.length>=10)s++;if(/[A-Z0-9]/.test(val))s++;if(/[^a-zA-Z0-9]/.test(val)&&val.length>=8)s++;const colors=['#E24B4A','#EF9F27','#5DCAA5','#5DCAA5'];const labels=['','Zaif',"O'rtacha",'Yaxshi','Kuchli'];['s1','s2','s3','s4'].forEach((id,i)=>{document.getElementById(id).style.background=i<s?colors[s-1]:'var(--border2)';});document.getElementById('strengthLabel').textContent=val.length>0?labels[s]:'';}
-  window.switchTab=function(tab){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');document.getElementById('tab-'+tab).classList.add('active');document.getElementById('content-'+tab).style.display='flex';if(tab==='map'&&map)setTimeout(()=>map.invalidateSize(),100);}
+  window.loadStats = async function() {
+    const el = document.getElementById('statsContent');
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">Yuklanmoqda...</div>';
+
+    // Agentlarni olish
+    const firmsSnap = await getDocs(collection(db, "firms"));
+    const agents = [];
+    firmsSnap.forEach(d => agents.push({ id: d.id, ...d.data() }));
+
+    if (agents.length === 0) {
+      el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">Hali agent yo'q</div>';
+      return;
+    }
+
+    let html = '';
+    for (const agent of agents) {
+      // Har bir agent mahsulotlarini olish
+      const prodSnap = await getDocs(
+        query(collection(db, "products"), where("firmId", "==", agent.id))
+      );
+      const mahsulotlar = [];
+      prodSnap.forEach(d => mahsulotlar.push({ id: d.id, ...d.data() }));
+
+      const jami     = mahsulotlar.length;
+      const mavjud   = mahsulotlar.filter(m => m.mavjud !== false).length;
+      const mavjudYoq = jami - mavjud;
+
+      const firstLetter = (agent.name || 'A').charAt(0).toUpperCase();
+
+      html += `
+        <div class="agent-card">
+          <div class="agent-card-header">
+            <div class="agent-avatar">${firstLetter}</div>
+            <div class="agent-info">
+              <div class="agent-name">${agent.name || 'Noma'lum'}</div>
+              <div class="agent-login">@${agent.login || ''} · ${agent.phone || ''}</div>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:var(--purple)">${jami}</div>
+          </div>
+
+          <div class="mahsulot-stats">
+            <div class="mahsulot-stat">
+              <div class="mahsulot-stat-num" style="color:var(--purple)">${jami}</div>
+              <div class="mahsulot-stat-label">Jami mahsulot</div>
+            </div>
+            <div class="mahsulot-stat">
+              <div class="mahsulot-stat-num" style="color:var(--green)">${mavjud}</div>
+              <div class="mahsulot-stat-label">Mavjud</div>
+            </div>
+            <div class="mahsulot-stat">
+              <div class="mahsulot-stat-num" style="color:var(--red)">${mavjudYoq}</div>
+              <div class="mahsulot-stat-label">Tugagan</div>
+            </div>
+          </div>
+
+          ${jami > 0 ? `
+          <div class="mahsulot-list">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Mahsulotlar ro'yxati</div>
+            ${mahsulotlar.map(m => `
+              <div class="mahsulot-row">
+                ${m.images?.[0] ? `<img class="mahsulot-img" src="${m.images[0]}" onerror="this.style.display='none'">` : `<div class="mahsulot-img" style="display:flex;align-items:center;justify-content:center;color:var(--muted)">📦</div>`}
+                <div class="mahsulot-row-info">
+                  <div class="mahsulot-row-name">${m.name || '—'}</div>
+                  <div class="mahsulot-row-narx">
+                    ${m.yirikNarx ? `<span style="color:var(--purple)">${Number(m.yirikNarx).toLocaleString()} so'm/${m.yirikBirlik}</span> · ` : ''}
+                    <span style="color:var(--green)">${Number(m.price || 0).toLocaleString()} so'm/${m.unit || ''}</span>
+                  </div>
+                </div>
+                <span class="mavjud-badge ${m.mavjud === false ? 'yoq' : 'ha'}">${m.mavjud === false ? 'Tugagan' : 'Mavjud'}</span>
+              </div>
+            `).join('')}
+          </div>
+          ` : ''}
+        </div>
+      `;
+    }
+    el.innerHTML = html;
+  }
+
+  window.switchTab=function(tab){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');document.getElementById('tab-'+tab).classList.add('active');document.getElementById('content-'+tab).style.display='flex';if(tab==='map'&&map)setTimeout(()=>map.invalidateSize(),100); if(tab==='stats')loadStats();}
   function showPanel(email){document.getElementById('loginScreen').style.display='none';document.getElementById('panelScreen').style.display='flex';document.getElementById('sessionInfo').textContent=email;}
   function showLogin(err){document.getElementById('loginScreen').style.display='flex';document.getElementById('panelScreen').style.display='none';if(err){const el=document.getElementById('loginError');el.textContent=err;el.style.display='block';}}
   function showLoginError(t){const el=document.getElementById('loginError');el.textContent=t;el.style.display='block';}
@@ -384,6 +463,26 @@
   .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
   .stat-num{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;margin-bottom:2px;}
   .stat-label{font-size:11px;color:var(--muted2);}
+  .agent-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:12px;}
+  .agent-card-header{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+  .agent-avatar{width:46px;height:46px;border-radius:50%;background:var(--purple-dim);border:1px solid rgba(127,119,221,.2);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--purple);flex-shrink:0;}
+  .agent-info{flex:1;}
+  .agent-name{font-size:15px;font-weight:600;color:var(--text);}
+  .agent-login{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted2);margin-top:2px;}
+  .mahsulot-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .mahsulot-stat{background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:12px;text-align:center;}
+  .mahsulot-stat-num{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;margin-bottom:3px;}
+  .mahsulot-stat-label{font-size:11px;color:var(--muted2);}
+  .mahsulot-list{margin-top:12px;border-top:1px solid var(--border);padding-top:12px;}
+  .mahsulot-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border2);}
+  .mahsulot-row:last-child{border-bottom:none;}
+  .mahsulot-img{width:40px;height:40px;border-radius:8px;object-fit:cover;background:var(--surface2);}
+  .mahsulot-row-info{flex:1;}
+  .mahsulot-row-name{font-size:13px;font-weight:500;color:var(--text);}
+  .mahsulot-row-narx{font-size:11px;color:var(--muted2);margin-top:2px;}
+  .mavjud-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 8px;border-radius:20px;}
+  .mavjud-badge.ha{background:var(--green-dim);color:var(--green);}
+  .mavjud-badge.yoq{background:var(--red-dim);color:var(--red);}
 
   /* USERS */
   .left-panel{padding:20px;overflow-y:auto;flex:1;}
@@ -538,6 +637,7 @@
     <button class="tab-btn active" id="tab-users"    onclick="switchTab('users')">👥 Foydalanuvchilar</button>
     <button class="tab-btn"        id="tab-map"      onclick="switchTab('map')">🗺 Xarita</button>
     <button class="tab-btn"        id="tab-messages" onclick="switchTab('messages')">💬 Chat shablonlari</button>
+    <button class="tab-btn"        id="tab-stats"    onclick="switchTab('stats')">📊 Statistika</button>
   </div>
 
   <!-- USERS TAB -->
@@ -629,6 +729,20 @@
       <button class="loc-btn" onclick="refreshMap()" style="margin-left:auto">🔄 Yangilash</button>
     </div>
     <div id="map"></div>
+  </div>
+
+  <!-- STATISTIKA TAB -->
+  <div class="tab-content" id="content-stats" style="flex-direction:column;padding:24px;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600">📊 Agent statistikasi</div>
+        <div style="font-size:12px;color:var(--muted2);margin-top:4px">Har bir agent yuklagan mahsulotlar soni</div>
+      </div>
+      <button class="loc-btn" onclick="loadStats()">🔄 Yangilash</button>
+    </div>
+    <div id="statsContent">
+      <div style="text-align:center;color:var(--muted);padding:40px">Yuklanmoqda...</div>
+    </div>
   </div>
 
   <!-- CHAT SHABLONLARI TAB -->
