@@ -224,7 +224,7 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
       </div>
       <div style="overflow-x:auto">
         <table class="user-table">
-          <thead><tr><th>Ism/Magazin</th><th>Rol</th><th>Login</th><th>Parol</th><th>Telefon</th><th>Koordinata</th><th>Amal</th></tr></thead>
+          <thead><tr><th>Ism/Magazin</th><th>Rol</th><th>Login</th><th>Parol</th><th>Telefon</th><th>So'ngi kirish</th><th>Koordinata</th><th>Amal</th></tr></thead>
           <tbody id="userTableBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Yuklanmoqda...</td></tr></tbody>
         </table>
       </div>
@@ -574,6 +574,7 @@ function renderTable(users) {
       <td><span class="mono pass-val" id="pass_${u._id}">••••••</span>
         <button class="eye-btn" onclick="togglePass('${u._id}','${u._pass||''}')">👁</button></td>
       <td><span class="mono">${u.phone||'—'}</span></td>
+      <td>${formatLastSeen(u.lastSeen)}</td>
       <td>${hasCoord?`<span class="coord-badge" onclick="goToMarker(${u.lat},${u.lng})">📍 ${parseFloat(u.lat).toFixed(4)}, ${parseFloat(u.lng).toFixed(4)}</span>`:`<span style="color:var(--muted);font-size:11px">Yo'q</span>`}</td>
       <td><div class="action-btns">
         <button class="btn-edit" onclick="openEdit('${u._id}','${u._role}')">✏️</button>
@@ -582,6 +583,16 @@ function renderTable(users) {
       </div></td>
     </tr>`;
   }).join('');
+}
+
+function formatLastSeen(ts) {
+  if (!ts) return '<span style="color:var(--muted);font-size:11px">Hech qachon</span>';
+  const diff = Math.floor((Date.now()/1000 - ts));
+  if (diff < 60)    return '<span style="color:var(--green);font-size:11px">Hozir</span>';
+  if (diff < 3600)  return '<span style="color:var(--green);font-size:11px">' + Math.floor(diff/60) + ' daq oldin</span>';
+  if (diff < 86400) return '<span style="color:var(--amber);font-size:11px">' + Math.floor(diff/3600) + ' soat oldin</span>';
+  if (diff < 604800)return '<span style="color:var(--amber);font-size:11px">' + Math.floor(diff/86400) + ' kun oldin</span>';
+  return '<span style="color:var(--red);font-size:11px">' + Math.floor(diff/604800) + ' hafta oldin</span>';
 }
 
 function togglePass(id, pass) {
