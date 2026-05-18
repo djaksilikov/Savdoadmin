@@ -919,7 +919,7 @@ async function saqlashLocal() {
 }
 
 async function yuklashLocal() {
-  const snap = await db.collection('firms').where('role','==','yarimAgent').get();
+  const snap = await db.collection('localSellers').orderBy('createdAt','desc').get();
   const list = document.getElementById('localList');
   if (snap.empty) { list.innerHTML='<div style="text-align:center;color:var(--muted);padding:32px">Hali yarim agent yoq</div>'; return; }
   list.innerHTML = snap.docs.map(d => {
@@ -940,7 +940,7 @@ async function yuklashLocal() {
 
 async function ochirishLocal(id) {
   if (!confirm('Yarim agentni ochirasizmi? Bu amalni qaytarib bolmaydi!')) return;
-  await db.collection('firms').doc(id).delete();
+  await db.collection('localSellers').doc(id).delete();
   yuklashLocal();
 }
 
