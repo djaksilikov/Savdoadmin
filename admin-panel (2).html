@@ -882,40 +882,25 @@ async function saqlashLocal() {
   if (!nomi || !tuman) { msgEl.textContent='Nomi va tuman majburiy!'; msgEl.style.display='block'; return; }
   if (login.length < 3) { msgEl.textContent='Login kamida 3 belgi!'; msgEl.style.display='block'; return; }
   if (parol.length < 6) { msgEl.textContent='Parol kamida 6 belgi!'; msgEl.style.display='block'; return; }
-
   msgEl.style.display='none';
-  const email = login + '@interactivesavdo.uz';
 
-  try {
-    const cred = await auth.createUserWithEmailAndPassword(email, parol);
-    const uid = cred.user.uid;
-    await db.collection('firms').doc(uid).set({
-      name: nomi,
-      telefon,
-      tuman,
-      kategoriya,
-      login,
-      email,
-      role: 'yarimAgent',
-      _pass: parol,
-      aktiv: true,
-      blocked: false,
-      createdAt: new Date().toISOString()
-    });
-    document.getElementById('localNomi').value='';
-    document.getElementById('localTelefon').value='';
-    document.getElementById('localTuman').value='';
-    document.getElementById('localKat').value='';
-    document.getElementById('localLogin').value='';
-    document.getElementById('localParol').value='';
-    document.getElementById('localForm').style.display='none';
-    yuklashLocal();
-    alert(nomi + ' muvaffaqiyatli yaratildi!');
-  } catch(e) {
-    if (e.code === 'auth/email-already-in-use') msgEl.textContent = 'Bu login allaqachon ishlatilmoqda!';
-    else msgEl.textContent = 'Xatolik: ' + e.message;
-    msgEl.style.display = 'block';
-  }
+  const existing = await db.collection('localSellers').where('login','==',login).get();
+  if (!existing.empty) { msgEl.textContent='Bu login allaqachon band!'; msgEl.style.display='block'; return; }
+
+  const uid = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2,9);
+  await db.collection('localSellers').doc(uid).set({
+    name: nomi, telefon, tuman, kategoriya,
+    login, _pass: parol,
+    role: 'localSeller', aktiv: true, blocked: false,
+    createdAt: new Date().toISOString()
+  });
+
+  ['localNomi','localTelefon','localTuman','localKat','localLogin','localParol'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('localForm').style.display='none';
+  yuklashLocal();
+  alert(nomi + " muvaffaqiyatli yaratildi!\nLogin: " + login + "\nParol: " + parol);
 }
 
 async function yuklashLocal() {
