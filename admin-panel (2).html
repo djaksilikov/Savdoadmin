@@ -201,6 +201,7 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     <button class="tab-btn"        id="tab-map"      data-tab="map">🗺 Xarita</button>
     <button class="tab-btn"        id="tab-messages" data-tab="messages">💬 Chat shablonlari</button>
     <button class="tab-btn"        id="tab-stats"    data-tab="stats">📊 Statistika</button>
+    <button class="tab-btn"        id="tab-local"    data-tab="local">🏠 Yarim agentlar</button>
   </div>
 
   <!-- USERS -->
@@ -327,6 +328,42 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     </div>
   </div>
 
+  <!-- YARIM AGENTLAR -->
+  <div class="tab-content" id="content-local" style="flex-direction:column;padding:24px;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600">🏠 Yarim agentlar</div>
+        <div style="font-size:12px;color:var(--muted2);margin-top:4px">Mahalliy ishlab chiqaruvchilar</div>
+      </div>
+      <button onclick="showLocalForm()" style="background:var(--green);color:#000;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">+ Qo'shish</button>
+    </div>
+
+    <div id="localForm" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;margin-bottom:16px">Yangi yarim agent</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label>NOMI</label><input id="localNomi" placeholder="Fotima non" style="margin-top:4px"></div>
+        <div><label>TELEFON</label><input id="localTelefon" placeholder="+998901234567" style="margin-top:4px"></div>
+        <div><label>TUMAN</label>
+          <select id="localTuman" style="margin-top:4px">
+            <option value="">Tanlang</option>
+            <option>Beruniy</option><option>Bozataw</option><option>Ellikqala</option>
+            <option>Kegeyli</option><option>Nokis</option><option>Qanlikol</option>
+            <option>Qaraozek</option><option>Qonirat</option><option>Shimbay</option>
+            <option>Shomanay</option><option>Taqiyatas</option><option>Taxtakopir</option>
+            <option>Tortkol</option><option>Xojeli</option><option>Amiwdarya</option>
+          </select>
+        </div>
+        <div><label>KATEGORIYA</label><input id="localKat" placeholder="Non, Salat..." style="margin-top:4px"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="saqlashLocal()" style="background:var(--green);color:#000;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">Saqlash</button>
+        <button onclick="document.getElementById('localForm').style.display='none'" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px">Bekor</button>
+      </div>
+    </div>
+
+    <div id="localList"></div>
+  </div>
+
   <!-- STATISTIKA -->
   <div class="tab-content" id="content-stats" style="flex-direction:column;padding:24px;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -438,6 +475,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById('content-' + tab).style.display = 'flex';
     if (tab === 'map' && map) setTimeout(() => map.invalidateSize(), 100);
     if (tab === 'stats') loadStats();
+    if (tab === 'local') yuklashLocal();
     if (tab === 'messages') loadXabarlar();
   });
 });
@@ -822,6 +860,67 @@ async function xabarQosh() {
 async function xabarOchir(id) {
   await db.collection("chatTemplates").doc(id).delete();
   loadXabarlar();
+}
+
+// ── Yarim agentlar ──
+function showLocalForm() {
+  document.getElementById('localForm').style.display='block';
+}
+
+async function saqlashLocal() {
+  const nomi = document.getElementById('localNomi').value.trim();
+  const telefon = document.getElementById('localTelefon').value.trim();
+  const tuman = document.getElementById('localTuman').value;
+  const kategoriya = document.getElementById('localKat').value.trim();
+  if (!nomi || !tuman) { alert('Nomi va tuman majburiy!'); return; }
+  await db.collection('localSellers').add({
+    nomi, telefon, tuman, kategoriya, aktiv: true, createdAt: Date.now()
+  });
+  document.getElementById('localNomi').value='';
+  document.getElementById('localTelefon').value='';
+  document.getElementById('localTuman').value='';
+  document.getElementById('localKat').value='';
+  document.getElementById('localForm').style.display='none';
+  yuklashLocal();
+}
+
+async function yuklashLocal() {
+  const snap = await db.collection('localSellers').orderBy('createdAt','desc').get();
+  const list = document.getElementById('localList');
+  if (snap.empty) { list.innerHTML='<div style="text-align:center;color:var(--muted);padding:32px">Hali yarim agent yoq</div>'; return; }
+  list.innerHTML = snap.docs.map(d => {
+    const s = d.data();
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px">🏠 ${s.nomi}</div>
+        <div style="font-size:12px;color:var(--muted2)">${s.tuman} · ${s.kategoriya||''} · ${s.telefon||''}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${s.aktiv?'rgba(93,202,165,0.12)':'rgba(226,75,74,0.12)'};color:${s.aktiv?'var(--green)':'var(--red)'}">${s.aktiv?'Faol':'Nofaol'}</span>
+        <button onclick="mahsulotQosh('${d.id}','${s.nomi}','${s.tuman}')" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px">+ Mahsulot</button>
+        <button onclick="ochirishLocal('${d.id}')" style="background:rgba(226,75,74,0.12);color:var(--red);border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function ochirishLocal(id) {
+  if (!confirm('Ochirasizmi?')) return;
+  await db.collection('localSellers').doc(id).delete();
+  yuklashLocal();
+}
+
+function mahsulotQosh(sellerId, sellerNomi, tuman) {
+  const nomi = prompt('Mahsulot nomi:');
+  if (!nomi) return;
+  const narx = prompt("Narxi (so'm):");
+  if (!narx) return;
+  const birlik = prompt('Birlik (Dona/Kg/Litr):') || 'Dona';
+  db.collection('localProducts').add({
+    nomi, narx: Number(narx), birlik,
+    sellerId, sellerNomi, tuman,
+    mavjud: true, createdAt: Date.now()
+  }).then(() => alert('Mahsulot qoshildi!'));
 }
 
 // ── Statistika ──
