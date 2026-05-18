@@ -341,7 +341,7 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     <div id="localForm" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
       <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;margin-bottom:16px">Yangi yarim agent</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div><label>NOMI</label><input id="localNomi" placeholder="Fotima non" style="margin-top:4px"></div>
+        <div><label>ISM FAMILYA</label><input id="localNomi" placeholder="Fotima Karimova" style="margin-top:4px"></div>
         <div><label>TELEFON</label><input id="localTelefon" placeholder="+998901234567" style="margin-top:4px"></div>
         <div><label>TUMAN</label>
           <select id="localTuman" style="margin-top:4px">
@@ -354,7 +354,10 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
           </select>
         </div>
         <div><label>KATEGORIYA</label><input id="localKat" placeholder="Non, Salat..." style="margin-top:4px"></div>
+        <div><label>LOGIN</label><input id="localLogin" placeholder="fotima_non" autocomplete="off" style="margin-top:4px"></div>
+        <div><label>PAROL</label><input type="password" id="localParol" placeholder="Kamida 6 belgi" style="margin-top:4px"></div>
       </div>
+      <div id="localMsg" style="display:none;color:var(--red);font-size:12px;margin-bottom:8px"></div>
       <div style="display:flex;gap:8px">
         <button onclick="saqlashLocal()" style="background:var(--green);color:#000;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">Saqlash</button>
         <button onclick="document.getElementById('localForm').style.display='none'" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px">Bekor</button>
@@ -872,32 +875,63 @@ async function saqlashLocal() {
   const telefon = document.getElementById('localTelefon').value.trim();
   const tuman = document.getElementById('localTuman').value;
   const kategoriya = document.getElementById('localKat').value.trim();
-  if (!nomi || !tuman) { alert('Nomi va tuman majburiy!'); return; }
-  await db.collection('localSellers').add({
-    nomi, telefon, tuman, kategoriya, aktiv: true, createdAt: Date.now()
-  });
-  document.getElementById('localNomi').value='';
-  document.getElementById('localTelefon').value='';
-  document.getElementById('localTuman').value='';
-  document.getElementById('localKat').value='';
-  document.getElementById('localForm').style.display='none';
-  yuklashLocal();
+  const login = document.getElementById('localLogin').value.trim().toLowerCase();
+  const parol = document.getElementById('localParol').value;
+  const msgEl = document.getElementById('localMsg');
+
+  if (!nomi || !tuman) { msgEl.textContent='Nomi va tuman majburiy!'; msgEl.style.display='block'; return; }
+  if (login.length < 3) { msgEl.textContent='Login kamida 3 belgi!'; msgEl.style.display='block'; return; }
+  if (parol.length < 6) { msgEl.textContent='Parol kamida 6 belgi!'; msgEl.style.display='block'; return; }
+
+  msgEl.style.display='none';
+  const email = login + '@interactivesavdo.uz';
+
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, parol);
+    const uid = cred.user.uid;
+    await db.collection('firms').doc(uid).set({
+      name: nomi,
+      telefon,
+      tuman,
+      kategoriya,
+      login,
+      email,
+      role: 'yarimAgent',
+      _pass: parol,
+      aktiv: true,
+      blocked: false,
+      createdAt: new Date().toISOString()
+    });
+    document.getElementById('localNomi').value='';
+    document.getElementById('localTelefon').value='';
+    document.getElementById('localTuman').value='';
+    document.getElementById('localKat').value='';
+    document.getElementById('localLogin').value='';
+    document.getElementById('localParol').value='';
+    document.getElementById('localForm').style.display='none';
+    yuklashLocal();
+    alert(nomi + ' muvaffaqiyatli yaratildi!');
+  } catch(e) {
+    if (e.code === 'auth/email-already-in-use') msgEl.textContent = 'Bu login allaqachon ishlatilmoqda!';
+    else msgEl.textContent = 'Xatolik: ' + e.message;
+    msgEl.style.display = 'block';
+  }
 }
 
 async function yuklashLocal() {
-  const snap = await db.collection('localSellers').orderBy('createdAt','desc').get();
+  const snap = await db.collection('firms').where('role','==','yarimAgent').get();
   const list = document.getElementById('localList');
   if (snap.empty) { list.innerHTML='<div style="text-align:center;color:var(--muted);padding:32px">Hali yarim agent yoq</div>'; return; }
   list.innerHTML = snap.docs.map(d => {
     const s = d.data();
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <div>
-        <div style="font-size:14px;font-weight:600;margin-bottom:4px">🏠 ${s.nomi}</div>
-        <div style="font-size:12px;color:var(--muted2)">${s.tuman} · ${s.kategoriya||''} · ${s.telefon||''}</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px">🏠 ${s.name||s.nomi}</div>
+        <div style="font-size:12px;color:var(--muted2);margin-top:2px">${s.tuman} · ${s.kategoriya||''} · ${s.telefon||''}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px">@${s.login||''} · ${s._pass||''}</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${s.aktiv?'rgba(93,202,165,0.12)':'rgba(226,75,74,0.12)'};color:${s.aktiv?'var(--green)':'var(--red)'}">${s.aktiv?'Faol':'Nofaol'}</span>
-        <button onclick="mahsulotQosh('${d.id}','${s.nomi}','${s.tuman}')" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px">+ Mahsulot</button>
+        <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${!s.blocked?'rgba(93,202,165,0.12)':'rgba(226,75,74,0.12)'};color:${!s.blocked?'var(--green)':'var(--red)'}">${!s.blocked?'Faol':'Nofaol'}</span>
         <button onclick="ochirishLocal('${d.id}')" style="background:rgba(226,75,74,0.12);color:var(--red);border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px">🗑</button>
       </div>
     </div>`;
@@ -905,8 +939,8 @@ async function yuklashLocal() {
 }
 
 async function ochirishLocal(id) {
-  if (!confirm('Ochirasizmi?')) return;
-  await db.collection('localSellers').doc(id).delete();
+  if (!confirm('Yarim agentni ochirasizmi? Bu amalni qaytarib bolmaydi!')) return;
+  await db.collection('firms').doc(id).delete();
   yuklashLocal();
 }
 
