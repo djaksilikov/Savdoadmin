@@ -31,7 +31,7 @@ header{border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:
 .header-right{display:flex;align-items:center;gap:10px;}
 .header-badge{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--red);background:var(--red-dim);border:1px solid rgba(226,75,74,.25);padding:3px 10px;border-radius:4px;}
 .logout-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted2);background:var(--surface2);border:1px solid var(--border2);padding:4px 12px;border-radius:6px;cursor:pointer;}
-.tab-bar{display:flex;gap:4px;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+.tab-bar{display:flex;gap:4px;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;flex-wrap:wrap;}
 .tab-btn{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:7px 18px;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--muted2);cursor:pointer;transition:.15s;}
 .tab-btn.active{background:var(--surface2);border-color:var(--muted2);color:var(--text);}
 .tab-content{display:none;flex:1;overflow:hidden;}
@@ -131,29 +131,24 @@ input::placeholder{color:var(--muted);}
 .btn-cancel{flex:1;background:var(--surface2);color:var(--muted2);border:1px solid var(--border2);border-radius:10px;padding:10px;font-size:13px;cursor:pointer;}
 .btn-save{flex:2;background:var(--text);color:#0D1B3E;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;}
 .edit-msg{color:var(--red);font-size:12px;margin-top:8px;display:none;}
-.agent-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:12px;}
-.agent-card-header{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
-.agent-avatar{width:46px;height:46px;border-radius:50%;background:var(--purple-dim);border:1px solid rgba(127,119,221,.2);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--purple);flex-shrink:0;}
-.agent-name{font-size:15px;font-weight:600;color:var(--text);}
-.agent-login{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted2);margin-top:2px;}
-.mahsulot-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-.mahsulot-stat{background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:12px;text-align:center;}
-.mahsulot-stat-num{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;margin-bottom:3px;}
-.mahsulot-stat-label{font-size:11px;color:var(--muted2);}
-.mahsulot-list{margin-top:12px;border-top:1px solid var(--border);padding-top:12px;}
-.mahsulot-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border2);}
-.mahsulot-row:last-child{border-bottom:none;}
-.mahsulot-img{width:40px;height:40px;border-radius:8px;object-fit:cover;background:var(--surface2);}
-.mahsulot-row-info{flex:1;}
-.mahsulot-row-name{font-size:13px;font-weight:500;color:var(--text);}
-.mahsulot-row-narx{font-size:11px;color:var(--muted2);margin-top:2px;}
-.mavjud-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 8px;border-radius:20px;}
-.mavjud-badge.ha{background:var(--green-dim);color:var(--green);}
-.mavjud-badge.yoq{background:var(--red-dim);color:var(--red);}
 footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify-content:space-between;flex-shrink:0;}
 .footer-text{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);}
 .online-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:6px;animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+/* HUDUD STYLES */
+.hudud-container{display:grid;grid-template-columns:240px 1fr;height:100%;overflow:hidden;}
+.hudud-left{border-right:1px solid var(--border);padding:16px;overflow-y:auto;background:var(--surface);}
+.hudud-right{padding:24px;overflow-y:auto;}
+.tuman-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;margin-bottom:4px;border:1px solid transparent;}
+.tuman-item:hover{background:var(--surface2);}
+.tuman-item.active{background:var(--purple-dim);border-color:var(--purple);color:var(--purple);}
+.hudud-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.hudud-name{font-size:14px;font-weight:500;}
+.hudud-count{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted2);}
+.add-hudud-row{display:flex;gap:8px;margin-bottom:16px;}
+.add-hudud-row input{flex:1;padding:8px 12px;}
+.add-hudud-row button{padding:8px 16px;background:var(--green);color:#000;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -167,10 +162,7 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     </div>
     <p style="font-size:13px;color:var(--muted2);margin-bottom:20px">Super Admin paneliga kirish</p>
     <div class="login-error" id="loginError"></div>
-    <div class="form-group">
-      <label>Admin Email</label>
-      <input type="email" id="adminEmail" placeholder="admin@...">
-    </div>
+    <div class="form-group"><label>Admin Email</label><input type="email" id="adminEmail" placeholder="admin@..."></div>
     <div class="form-group" style="margin-bottom:20px">
       <label>Parol</label>
       <div class="pass-wrap">
@@ -202,6 +194,7 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     <button class="tab-btn"        id="tab-messages" data-tab="messages">💬 Chat shablonlari</button>
     <button class="tab-btn"        id="tab-stats"    data-tab="stats">📊 Statistika</button>
     <button class="tab-btn"        id="tab-local"    data-tab="local">🏠 Yarim agentlar</button>
+    <button class="tab-btn"        id="tab-hudud"    data-tab="hudud">📍 Hududlar</button>
   </div>
 
   <!-- USERS -->
@@ -259,6 +252,10 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
       <div class="form-group" id="tumanGroup" style="display:none">
         <label>Tuman</label>
         <div class="tuman-tags" id="tumanTags"></div>
+      </div>
+      <div class="form-group" id="hududGroup" style="display:none">
+        <label>Hudud (MFY)</label>
+        <select id="hududSelect"><option value="">Avval tuman tanlang</option></select>
       </div>
       <div class="form-group" id="coordGroup" style="display:none">
         <label>Koordinata</label>
@@ -337,25 +334,24 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
       </div>
       <button onclick="showLocalForm()" style="background:var(--green);color:#000;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">+ Qo'shish</button>
     </div>
-
     <div id="localForm" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
       <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;margin-bottom:16px">Yangi yarim agent</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div><label>ISM FAMILYA</label><input id="localNomi" placeholder="Fotima Karimova" style="margin-top:4px"></div>
         <div><label>TELEFON</label><input id="localTelefon" placeholder="+998901234567" style="margin-top:4px"></div>
         <div><label>TUMAN</label>
-          <select id="localTuman" style="margin-top:4px">
+          <select id="localTuman" style="margin-top:4px" onchange="localTumanOzgardi()">
             <option value="">Tanlang</option>
-            <option>Beruniy</option><option>Bozataw</option><option>Ellikqala</option>
-            <option>Kegeyli</option><option>Nokis</option><option>Qanlikol</option>
-            <option>Qaraozek</option><option>Qonirat</option><option>Shimbay</option>
-            <option>Shomanay</option><option>Taqiyatas</option><option>Taxtakopir</option>
-            <option>Tortkol</option><option>Xojeli</option><option>Amiwdarya</option>
+          </select>
+        </div>
+        <div><label>HUDUD (MFY)</label>
+          <select id="localHudud" style="margin-top:4px">
+            <option value="">Avval tuman tanlang</option>
           </select>
         </div>
         <div><label>KATEGORIYA</label><input id="localKat" placeholder="Non, Salat..." style="margin-top:4px"></div>
         <div><label>LOGIN</label><input id="localLogin" placeholder="fotima_non" autocomplete="off" style="margin-top:4px"></div>
-        <div><label>PAROL</label><input type="password" id="localParol" placeholder="Kamida 6 belgi" style="margin-top:4px"></div>
+        <div style="grid-column:span 2"><label>PAROL</label><input type="password" id="localParol" placeholder="Kamida 6 belgi" style="margin-top:4px"></div>
       </div>
       <div id="localMsg" style="display:none;color:var(--red);font-size:12px;margin-bottom:8px"></div>
       <div style="display:flex;gap:8px">
@@ -363,8 +359,32 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
         <button onclick="document.getElementById('localForm').style.display='none'" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px">Bekor</button>
       </div>
     </div>
-
     <div id="localList"></div>
+  </div>
+
+  <!-- HUDUDLAR -->
+  <div class="tab-content" id="content-hudud">
+    <div class="hudud-container">
+      <!-- Chap - tumanlar -->
+      <div class="hudud-left">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;margin-bottom:12px;color:var(--muted2)">TUMANLAR</div>
+        <div id="tumanList"></div>
+      </div>
+      <!-- O'ng - hududlar -->
+      <div class="hudud-right">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600" id="hududTumanNomi">Tuman tanlang</div>
+            <div style="font-size:12px;color:var(--muted2);margin-top:4px" id="hududSoni"></div>
+          </div>
+        </div>
+        <div class="add-hudud-row" id="addHududRow" style="display:none">
+          <input type="text" id="yangiHududNomi" placeholder="Hudud nomi (masalan: Dustlik MFY)">
+          <button onclick="hududQosh()">+ Qo'shish</button>
+        </div>
+        <div id="hududList"><div class="empty-msg">Chapdan tuman tanlang</div></div>
+      </div>
+    </div>
   </div>
 
   <!-- STATISTIKA -->
@@ -396,13 +416,13 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     <div class="form-group"><label>Login</label><input type="text" id="editLogin"></div>
     <div class="form-group">
       <label>Tuman</label>
-      <select id="editTuman">
+      <select id="editTuman" onchange="editTumanOzgardi()">
         <option value="">Tanlang</option>
-        <option>Beruniy</option><option>Bozataw</option><option>Ellikqala</option><option>Kegeyli</option>
-        <option>Nokis</option><option>Qanlikol</option><option>Qaraozek</option><option>Qonirat</option>
-        <option>Shimbay</option><option>Shomanay</option><option>Taqiyatas</option><option>Taxtakopir</option>
-        <option>Tortkol</option><option>Xojeli</option><option>Amiwdarya</option>
       </select>
+    </div>
+    <div class="form-group" id="editHududGroup" style="display:none">
+      <label>Hudud (MFY)</label>
+      <select id="editHudud"><option value="">Tanlang</option></select>
     </div>
     <div class="form-group" id="editCoordGroup" style="display:none">
       <label>Koordinata</label>
@@ -444,26 +464,26 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
-const tumanlar = ["Beruniy","Bozataw","Ellikqala","Kegeyli","Nokis","Qanlikol","Qaraozek","Qonirat","Shimbay","Shomanay","Taqiyatas","Taxtakopir","Tortkol","Xojeli","Amiwdarya"];
-const tavsiyaXabarlar = [
-  "Zakazingiz qabul qilindi ✓",
-  "Mahsulotlar tayyor, yetkazilmoqda 🚗",
-  "Zakazni tasdiqlaysizmi?",
-  "Iltimos, manzilni aniqroq ko'rsating",
-  "Bugun yetkazib berish imkoni yo'q, ertaga bo'ladi",
-  "Mahsulot hozir mavjud emas",
-  "Miqdorni o'zgartirishingiz mumkin",
-  "Rahmat! Keyingi safar ham xizmatdan foydalaning 🙏"
-];
+const tumanlar = ["Beruniy tumani","Bozataw tumani","Ellikqala tumani","Kegeyli tumani","Nokis tumani","Qanlikol tumani","Qaraozek tumani","Qonirat tumani","Shimbay tumani","Shomanay tumani","Taqiyatas tumani","Taxtakopir tumani","Tortkol tumani","Xojeli tumani","Amiwdarya tumani"];
+const tavsiyaXabarlar = ["Zakazingiz qabul qilindi ✓","Mahsulotlar tayyor, yetkazilmoqda 🚗","Zakazni tasdiqlaysizmi?","Iltimos, manzilni aniqroq ko'rsating","Bugun yetkazib berish imkoni yo'q, ertaga bo'ladi","Mahsulot hozir mavjud emas","Miqdorni o'zgartirishingiz mumkin","Rahmat! Keyingi safar ham xizmatdan foydalaning 🙏"];
 
 let map = null, markers = [], allUsers = [], currentFilter = 'all', selectedRole = null, selectedTuman = null;
+let joriyTuman = null;
 
-// ── Tuman taglarini yaratish ──
+// Tuman select larni to'ldirish
+function tumanSelectFill(selectId, selectedVal='') {
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = '<option value="">Tanlang</option>' + tumanlar.map(t => `<option value="${t}" ${t===selectedVal?'selected':''}>${t}</option>`).join('');
+}
+
+tumanSelectFill('editTuman');
+tumanSelectFill('localTuman');
+
+// Tuman tags
 document.getElementById('tumanTags').innerHTML = tumanlar.map(t =>
   `<div class="tuman-tag" onclick="selectTuman(this,'${t}')">${t}</div>`
 ).join('');
 
-// ── Tavsiya xabarlarini yaratish ──
 document.getElementById('tavsiyalar').innerHTML = tavsiyaXabarlar.map(x =>
   `<button class="loc-btn" style="text-align:left;padding:8px 12px" onclick="document.getElementById('xabarMatn').value='${x}'">${x}</button>`
 ).join('');
@@ -478,8 +498,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById('content-' + tab).style.display = 'flex';
     if (tab === 'map' && map) setTimeout(() => map.invalidateSize(), 100);
     if (tab === 'stats') loadStats();
-    if (tab === 'local') yuklashLocal();
+    if (tab === 'local') { yuklashLocal(); tumanSelectFill('localTuman'); }
     if (tab === 'messages') loadXabarlar();
+    if (tab === 'hudud') hududTabYukla();
   });
 });
 
@@ -491,34 +512,22 @@ auth.onAuthStateChanged(async user => {
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('panelScreen').style.display = 'flex';
       document.getElementById('sessionInfo').textContent = user.email;
-      loadUsers();
-      initMap();
-      loadXabarlar();
-    } else {
-      await auth.signOut();
-      showLoginError("Siz admin emassiz");
-    }
+      loadUsers(); initMap(); loadXabarlar();
+    } else { await auth.signOut(); showLoginError("Siz admin emassiz"); }
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('panelScreen').style.display = 'none';
   }
 });
 
-// ── Login ──
 document.getElementById('loginBtn').addEventListener('click', doLogin);
 document.getElementById('adminEmail').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 document.getElementById('adminPass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
-document.getElementById('togglePass').addEventListener('click', () => {
-  const p = document.getElementById('adminPass');
-  p.type = p.type === 'password' ? 'text' : 'password';
-});
+document.getElementById('togglePass').addEventListener('click', () => { const p=document.getElementById('adminPass'); p.type=p.type==='password'?'text':'password'; });
 document.getElementById('logoutBtn').addEventListener('click', () => auth.signOut());
 document.getElementById('cancelEditBtn').addEventListener('click', closeEdit);
 document.getElementById('saveEditBtn').addEventListener('click', saveEdit);
-document.getElementById('deleteUserBtn').addEventListener('click', () => {
-  deleteUser(document.getElementById('editId').value, document.getElementById('editRole').value);
-  closeEdit();
-});
+document.getElementById('deleteUserBtn').addEventListener('click', () => { deleteUser(document.getElementById('editId').value, document.getElementById('editRole').value); closeEdit(); });
 
 async function doLogin() {
   const email = document.getElementById('adminEmail').value.trim();
@@ -526,18 +535,11 @@ async function doLogin() {
   const btn   = document.getElementById('loginBtn');
   if (!email || !pass) { showLoginError("Email va parolni kiriting"); return; }
   btn.disabled = true; btn.textContent = "Kirish...";
-  try {
-    await auth.signInWithEmailAndPassword(email, pass);
-  } catch(e) {
-    showLoginError("Email yoki parol noto'g'ri");
-  }
+  try { await auth.signInWithEmailAndPassword(email, pass); }
+  catch(e) { showLoginError("Email yoki parol noto'g'ri"); }
   btn.disabled = false; btn.textContent = "Kirish";
 }
-
-function showLoginError(t) {
-  const el = document.getElementById('loginError');
-  el.textContent = t; el.style.display = 'block';
-}
+function showLoginError(t) { const el=document.getElementById('loginError'); el.textContent=t; el.style.display='block'; }
 
 // ── Xarita ──
 function initMap() {
@@ -551,27 +553,17 @@ function initMap() {
 
 async function loadMapMarkers() {
   if (!map) return;
-  markers.forEach(m => map.removeLayer(m));
-  markers = [];
+  markers.forEach(m => map.removeLayer(m)); markers = [];
   const snap = await db.collection("shops").get();
   snap.forEach(docSnap => {
     const d = docSnap.data();
     if (!d.lat || !d.lng) return;
     const color = d.blocked ? '#E24B4A' : '#5DCAA5';
-    const icon = L.divIcon({
-      className: '',
-      html: `<div style="background:${color};width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>`,
-      iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
-    });
-    const m = L.marker([d.lat, d.lng], { icon }).addTo(map).bindPopup(`
-      <b>${d.shopName || d.name || 'Magazin'}</b><br>
-      👤 ${d.name || ''}<br>📞 ${d.phone || ''}<br>📍 ${d.tuman || ''}
-    `);
+    const icon = L.divIcon({ className:'', html:`<div style="background:${color};width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>`, iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] });
+    const m = L.marker([d.lat, d.lng], { icon }).addTo(map).bindPopup(`<b>${d.shopName||d.name||'Magazin'}</b><br>👤 ${d.name||''}<br>📞 ${d.phone||''}<br>📍 ${d.tuman||''} · ${d.hudud||''}`);
     markers.push(m);
   });
-  if (markers.length > 0) {
-    map.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
-  }
+  if (markers.length > 0) map.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
 }
 
 // ── Foydalanuvchilar ──
@@ -583,37 +575,31 @@ async function loadUsers() {
   const firms = await db.collection("firms").get();
   firms.forEach(d => users.push({ ...d.data(), _id: d.id, _role: 'firmaAgent' }));
   allUsers = users;
-  renderTable(users);
-  loadMapMarkers();
+  renderTable(users); loadMapMarkers();
   document.getElementById('totalCount').textContent   = users.length;
-  document.getElementById('magazinCount').textContent = users.filter(u => u._role === 'magazinEgasi').length;
-  document.getElementById('firmaCount').textContent   = users.filter(u => u._role === 'firmaAgent').length;
+  document.getElementById('magazinCount').textContent = users.filter(u => u._role==='magazinEgasi').length;
+  document.getElementById('firmaCount').textContent   = users.filter(u => u._role==='firmaAgent').length;
   document.getElementById('blockedCount').textContent = users.filter(u => u.blocked).length;
-  document.getElementById('mapCount').textContent     = users.filter(u => u._role === 'magazinEgasi' && u.lat).length;
+  document.getElementById('mapCount').textContent     = users.filter(u => u._role==='magazinEgasi' && u.lat).length;
 }
 
 function renderTable(users) {
-  const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
-  let filtered = currentFilter === 'all' ? users : users.filter(u => u._role === currentFilter);
-  if (search) filtered = filtered.filter(u =>
-    (u.name||'').toLowerCase().includes(search) ||
-    (u.login||'').toLowerCase().includes(search) ||
-    (u.phone||'').toLowerCase().includes(search)
-  );
+  const search = (document.getElementById('searchInput')?.value||'').toLowerCase();
+  let filtered = currentFilter==='all' ? users : users.filter(u => u._role===currentFilter);
+  if (search) filtered = filtered.filter(u => (u.name||'').toLowerCase().includes(search)||(u.login||'').toLowerCase().includes(search)||(u.phone||'').toLowerCase().includes(search));
   const list = document.getElementById('userTableBody');
-  if (!filtered.length) { list.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Topilmadi</td></tr>`; return; }
+  if (!filtered.length) { list.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Topilmadi</td></tr>`; return; }
   list.innerHTML = filtered.map(u => {
-    const rc = u._role === 'magazinEgasi' ? 'magazin' : 'firma';
+    const rc = u._role==='magazinEgasi'?'magazin':'firma';
     const hasCoord = u.lat && u.lng;
     return `<tr class="${u.blocked?'blocked-row':''}">
       <td><div class="user-name-cell"><div class="role-dot ${rc}"></div><div>
         <div class="cell-name">${u.shopName||u.name||'—'}</div>
-        <div class="cell-sub">${u.tuman||''}</div>
+        <div class="cell-sub">${u.tuman||''} ${u.hudud?'· '+u.hudud:''}</div>
       </div></div></td>
       <td><span class="role-pill ${rc}">${u._role==='magazinEgasi'?'Magazin':'Firma'}</span></td>
       <td><span class="mono">${u.login||u.phone||'—'}</span></td>
-      <td><span class="mono pass-val" id="pass_${u._id}">••••••</span>
-        <button class="eye-btn" onclick="togglePass('${u._id}','${u._pass||''}')">👁</button></td>
+      <td><span class="mono pass-val" id="pass_${u._id}">••••••</span><button class="eye-btn" onclick="togglePass('${u._id}','${u._pass||''}')">👁</button></td>
       <td><span class="mono">${u.phone||'—'}</span></td>
       <td>${formatLastSeen(u.lastSeen)}</td>
       <td>${hasCoord?`<span class="coord-badge" onclick="goToMarker(${u.lat},${u.lng})">📍 ${parseFloat(u.lat).toFixed(4)}, ${parseFloat(u.lng).toFixed(4)}</span>`:`<span style="color:var(--muted);font-size:11px">Yo'q</span>`}</td>
@@ -629,34 +615,16 @@ function renderTable(users) {
 function formatLastSeen(ts) {
   if (!ts) return '<span style="color:var(--muted);font-size:11px">Hech qachon</span>';
   const diff = Math.floor((Date.now()/1000 - ts));
-  if (diff < 60)    return '<span style="color:var(--green);font-size:11px">Hozir</span>';
-  if (diff < 3600)  return '<span style="color:var(--green);font-size:11px">' + Math.floor(diff/60) + ' daq oldin</span>';
-  if (diff < 86400) return '<span style="color:var(--amber);font-size:11px">' + Math.floor(diff/3600) + ' soat oldin</span>';
-  if (diff < 604800)return '<span style="color:var(--amber);font-size:11px">' + Math.floor(diff/86400) + ' kun oldin</span>';
-  return '<span style="color:var(--red);font-size:11px">' + Math.floor(diff/604800) + ' hafta oldin</span>';
+  if (diff < 60) return '<span style="color:var(--green);font-size:11px">Hozir</span>';
+  if (diff < 3600) return '<span style="color:var(--green);font-size:11px">'+Math.floor(diff/60)+' daq oldin</span>';
+  if (diff < 86400) return '<span style="color:var(--amber);font-size:11px">'+Math.floor(diff/3600)+' soat oldin</span>';
+  return '<span style="color:var(--red);font-size:11px">'+Math.floor(diff/86400)+' kun oldin</span>';
 }
 
-function togglePass(id, pass) {
-  const el = document.getElementById('pass_'+id);
-  el.textContent = el.textContent==='••••••' ? (pass||'—') : '••••••';
-}
-
-function goToMarker(lat, lng) {
-  if (!map) return;
-  document.getElementById('tab-map').click();
-  setTimeout(() => { map.setView([lat, lng], 16); map.invalidateSize(); }, 200);
-}
-
-async function toggleBlock(id, role, isBlocked) {
-  await db.collection(role==='magazinEgasi'?'shops':'firms').doc(id).update({ blocked: !isBlocked });
-  loadUsers();
-}
-
-async function deleteUser(id, role) {
-  if (!confirm("Foydalanuvchini BUTUNLAY o'chirasizmi?\nBu amalni qaytarib bo'lmaydi!")) return;
-  await db.collection(role==='magazinEgasi'?'shops':'firms').doc(id).delete();
-  loadUsers();
-}
+function togglePass(id, pass) { const el=document.getElementById('pass_'+id); el.textContent=el.textContent==='••••••'?(pass||'—'):'••••••'; }
+function goToMarker(lat, lng) { if (!map) return; document.getElementById('tab-map').click(); setTimeout(()=>{map.setView([lat,lng],16);map.invalidateSize();},200); }
+async function toggleBlock(id, role, isBlocked) { await db.collection(role==='magazinEgasi'?'shops':'firms').doc(id).update({blocked:!isBlocked}); loadUsers(); }
+async function deleteUser(id, role) { if (!confirm("Foydalanuvchini BUTUNLAY o'chirasizmi?")) return; await db.collection(role==='magazinEgasi'?'shops':'firms').doc(id).delete(); loadUsers(); }
 
 async function openEdit(id, role) {
   const snap = await db.collection(role==='magazinEgasi'?'shops':'firms').doc(id).get();
@@ -667,317 +635,253 @@ async function openEdit(id, role) {
   document.getElementById('editShopName').value = d.shopName||'';
   document.getElementById('editPhone').value    = d.phone||'';
   document.getElementById('editLogin').value    = d.login||'';
-  document.getElementById('editTuman').value    = d.tuman||'';
   document.getElementById('editLat').value      = d.lat||'';
   document.getElementById('editLng').value      = d.lng||'';
   document.getElementById('editPass').value     = '';
+  tumanSelectFill('editTuman', d.tuman||'');
+  if (d.tuman) { await editTumanOzgardi(d.hudud||''); }
   document.getElementById('editShopNameGroup').style.display = role==='magazinEgasi'?'block':'none';
   document.getElementById('editCoordGroup').style.display    = role==='magazinEgasi'?'block':'none';
+  document.getElementById('editHududGroup').style.display    = role==='magazinEgasi'?'block':'none';
   document.getElementById('editMsg').style.display = 'none';
   document.getElementById('editModal').style.display = 'flex';
 }
 
-function closeEdit() { document.getElementById('editModal').style.display = 'none'; }
+async function editTumanOzgardi(selectedHudud='') {
+  const tuman = document.getElementById('editTuman').value;
+  const sel = document.getElementById('editHudud');
+  if (!tuman) { sel.innerHTML='<option value="">Avval tuman tanlang</option>'; return; }
+  const snap = await db.collection('hududlar').where('tuman','==',tuman).where('aktiv','==',true).orderBy('nomi').get();
+  sel.innerHTML = '<option value="">Tanlang</option>' + snap.docs.map(d => `<option value="${d.data().nomi}" ${d.data().nomi===selectedHudud?'selected':''}>${d.data().nomi}</option>`).join('');
+}
+
+function closeEdit() { document.getElementById('editModal').style.display='none'; }
 
 async function saveEdit() {
-  const id    = document.getElementById('editId').value;
-  const role  = document.getElementById('editRole').value;
-  const name  = document.getElementById('editName').value.trim();
-  const shop  = document.getElementById('editShopName').value.trim();
-  const phone = document.getElementById('editPhone').value.trim();
-  const login = document.getElementById('editLogin').value.trim();
-  const tuman = document.getElementById('editTuman').value;
-  const lat   = document.getElementById('editLat').value.trim();
-  const lng   = document.getElementById('editLng').value.trim();
-  const pass  = document.getElementById('editPass').value;
+  const id=document.getElementById('editId').value, role=document.getElementById('editRole').value;
+  const name=document.getElementById('editName').value.trim(), shop=document.getElementById('editShopName').value.trim();
+  const phone=document.getElementById('editPhone').value.trim(), login=document.getElementById('editLogin').value.trim();
+  const tuman=document.getElementById('editTuman').value, hudud=document.getElementById('editHudud').value;
+  const lat=document.getElementById('editLat').value.trim(), lng=document.getElementById('editLng').value.trim();
+  const pass=document.getElementById('editPass').value;
   if (!name) { document.getElementById('editMsg').textContent="Ism familyani kiriting"; document.getElementById('editMsg').style.display='block'; return; }
-  const btn = document.getElementById('saveEditBtn');
-  btn.disabled = true; btn.textContent = "Saqlanmoqda...";
+  const btn=document.getElementById('saveEditBtn'); btn.disabled=true; btn.textContent="Saqlanmoqda...";
   try {
-    const data = { name, phone, login, tuman };
-    if (shop) data.shopName = shop;
-    if (lat)  data.lat = parseFloat(lat);
-    if (lng)  data.lng = parseFloat(lng);
-    if (pass) data._pass = pass;
+    const data={name,phone,login,tuman,hudud};
+    if (shop) data.shopName=shop; if (lat) data.lat=parseFloat(lat); if (lng) data.lng=parseFloat(lng); if (pass) data._pass=pass;
     await db.collection(role==='magazinEgasi'?'shops':'firms').doc(id).update(data);
     closeEdit(); loadUsers();
   } catch(e) { document.getElementById('editMsg').textContent="Xatolik: "+e.message; document.getElementById('editMsg').style.display='block'; }
-  btn.disabled = false; btn.textContent = "Saqlash";
+  btn.disabled=false; btn.textContent="Saqlash";
 }
 
 // ── Yangi foydalanuvchi ──
 function selectRole(role) {
-  selectedRole = role;
-  document.getElementById('roleMagazin').className = 'role-option' + (role==='magazinEgasi'?' sel-magazin':'');
-  document.getElementById('roleFirma').className   = 'role-option' + (role==='firmaAgent'  ?' sel-firma':'');
-  document.getElementById('tumanGroup').style.display    = role==='magazinEgasi' ? 'block' : 'none';
-  document.getElementById('shopNameGroup').style.display = role==='magazinEgasi' ? 'block' : 'none';
-  document.getElementById('coordGroup').style.display    = role==='magazinEgasi' ? 'block' : 'none';
+  selectedRole=role;
+  document.getElementById('roleMagazin').className='role-option'+(role==='magazinEgasi'?' sel-magazin':'');
+  document.getElementById('roleFirma').className  ='role-option'+(role==='firmaAgent'  ?' sel-firma':'');
+  document.getElementById('tumanGroup').style.display    = role==='magazinEgasi'?'block':'none';
+  document.getElementById('shopNameGroup').style.display = role==='magazinEgasi'?'block':'none';
+  document.getElementById('coordGroup').style.display    = role==='magazinEgasi'?'block':'none';
+  document.getElementById('hududGroup').style.display    = role==='magazinEgasi'?'block':'none';
 }
 
 function selectTuman(el, tuman) {
-  selectedTuman = tuman;
+  selectedTuman=tuman;
   document.querySelectorAll('.tuman-tag').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
+  // Hudud select ni yuklash
+  hududlarniYukla('hududSelect', tuman);
+}
+
+async function hududlarniYukla(selectId, tuman) {
+  const sel = document.getElementById(selectId);
+  if (!tuman) { sel.innerHTML='<option value="">Avval tuman tanlang</option>'; return; }
+  const snap = await db.collection('hududlar').where('tuman','==',tuman).where('aktiv','==',true).orderBy('nomi').get();
+  sel.innerHTML = '<option value="">Tanlang</option>' + snap.docs.map(d => `<option value="${d.data().nomi}">${d.data().nomi}</option>`).join('');
+}
+
+async function localTumanOzgardi() {
+  const tuman = document.getElementById('localTuman').value;
+  await hududlarniYukla('localHudud', tuman);
 }
 
 async function createUser() {
-  const role     = selectedRole;
-  const fullName = document.getElementById('fullName').value.trim();
-  const shopName = document.getElementById('shopName').value.trim();
-  const phone    = document.getElementById('phone').value.trim();
-  const login    = document.getElementById('loginField').value.trim().toLowerCase();
-  const pass     = document.getElementById('passField').value;
-  const passConf = document.getElementById('passConfirm').value;
-  const tuman    = selectedTuman;
-  const lat      = document.getElementById('latField').value.trim();
-  const lng      = document.getElementById('lngField').value.trim();
-
-  if (!role)               { showError("Rol tanlang"); return; }
-  if (!fullName)           { showError("Ism familyani kiriting"); return; }
+  const role=selectedRole, fullName=document.getElementById('fullName').value.trim();
+  const shopName=document.getElementById('shopName').value.trim(), phone=document.getElementById('phone').value.trim();
+  const login=document.getElementById('loginField').value.trim().toLowerCase();
+  const pass=document.getElementById('passField').value, passConf=document.getElementById('passConfirm').value;
+  const tuman=selectedTuman, hudud=document.getElementById('hududSelect').value;
+  const lat=document.getElementById('latField').value.trim(), lng=document.getElementById('lngField').value.trim();
+  if (!role) { showError("Rol tanlang"); return; }
+  if (!fullName) { showError("Ism familyani kiriting"); return; }
   if (role==='magazinEgasi' && !shopName) { showError("Magazin nomini kiriting"); return; }
-  if (!phone)              { showError("Telefon kiriting"); return; }
-  if (login.length < 3)   { showError("Login kamida 3 belgi"); return; }
-  if (pass.length < 6)    { showError("Parol kamida 6 belgi"); return; }
-  if (pass !== passConf)  { showError("Parollar mos kelmadi"); return; }
+  if (!phone) { showError("Telefon kiriting"); return; }
+  if (login.length<3) { showError("Login kamida 3 belgi"); return; }
+  if (pass.length<6) { showError("Parol kamida 6 belgi"); return; }
+  if (pass!==passConf) { showError("Parollar mos kelmadi"); return; }
   if (role==='magazinEgasi' && !tuman) { showError("Tuman tanlang"); return; }
+  if (role==='magazinEgasi' && !hudud) { showError("Hudud (MFY) tanlang"); return; }
   if (role==='magazinEgasi' && (!lat||!lng)) { showError("Koordinata kiriting"); return; }
-
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = true; btn.textContent = "Saqlanmoqda...";
+  const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent="Saqlanmoqda...";
   try {
-    const email    = `${login}@interactivesavdo.uz`;
-    const userCred = await auth.createUserWithEmailAndPassword(email, pass);
-    const uid      = userCred.user.uid;
-    const coll     = role === 'magazinEgasi' ? 'shops' : 'firms';
-    const data     = { name:fullName, phone, login, email, role, _pass:pass, blocked:false, createdAt:new Date().toISOString() };
-    if (role==='magazinEgasi') { data.shopName=shopName; data.lat=parseFloat(lat); data.lng=parseFloat(lng); data.tuman=tuman; }
+    const email=`${login}@interactivesavdo.uz`;
+    const userCred=await auth.createUserWithEmailAndPassword(email, pass);
+    const uid=userCred.user.uid;
+    const coll=role==='magazinEgasi'?'shops':'firms';
+    const data={name:fullName,phone,login,email,role,_pass:pass,blocked:false,createdAt:new Date().toISOString()};
+    if (role==='magazinEgasi') { data.shopName=shopName; data.lat=parseFloat(lat); data.lng=parseFloat(lng); data.tuman=tuman; data.hudud=hudud; }
     await db.collection(coll).doc(uid).set(data);
-    await loadUsers(); resetForm(); window.scrollTo({top: 0, behavior: "smooth"});
+    await loadUsers(); resetForm(); window.scrollTo({top:0,behavior:"smooth"});
     showSuccess(`${fullName} muvaffaqiyatli yaratildi!`);
   } catch(e) {
     if (e.code==='auth/email-already-in-use') showError("Bu login allaqachon ishlatilmoqda");
-    else showError("Xatolik: " + e.message);
+    else showError("Xatolik: "+e.message);
   }
-  btn.disabled = false; btn.textContent = "Foydalanuvchi yaratish";
+  btn.disabled=false; btn.textContent="Foydalanuvchi yaratish";
 }
 
 function resetForm() {
-  ['fullName','shopName','phone','loginField','passField','passConfirm','latField','lngField'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-  document.getElementById('roleMagazin').className = 'role-option';
-  document.getElementById('roleFirma').className   = 'role-option';
-  ['tumanGroup','shopNameGroup','coordGroup'].forEach(id => document.getElementById(id).style.display='none');
-  document.querySelectorAll('.tuman-tag').forEach(t => t.classList.remove('active'));
-  ['s1','s2','s3','s4'].forEach(id => document.getElementById(id).style.background='var(--border2)');
-  document.getElementById('strengthLabel').textContent = '';
-  document.getElementById('msgError').className = 'msg error';
-  document.getElementById('msgSuccess').className = 'msg success';
-  selectedRole = null; selectedTuman = null;
-  // 3 soniyadan keyin success xabarni yashirish
-  setTimeout(() => {
-    document.getElementById('msgSuccess').className = 'msg success';
-  }, 3000);
+  ['fullName','shopName','phone','loginField','passField','passConfirm','latField','lngField'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('roleMagazin').className='role-option'; document.getElementById('roleFirma').className='role-option';
+  ['tumanGroup','shopNameGroup','coordGroup','hududGroup'].forEach(id=>document.getElementById(id).style.display='none');
+  document.querySelectorAll('.tuman-tag').forEach(t=>t.classList.remove('active'));
+  ['s1','s2','s3','s4'].forEach(id=>document.getElementById(id).style.background='var(--border2)');
+  document.getElementById('strengthLabel').textContent='';
+  document.getElementById('msgError').className='msg error'; document.getElementById('msgSuccess').className='msg success';
+  selectedRole=null; selectedTuman=null;
 }
 
-function setFilter(f) {
-  currentFilter = f;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('filter_'+f).classList.add('active');
-  renderTable(allUsers);
-}
-
+function setFilter(f) { currentFilter=f; document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active')); document.getElementById('filter_'+f).classList.add('active'); renderTable(allUsers); }
 function doSearch() { renderTable(allUsers); }
+function showError(t) { document.getElementById('msgErrorText').textContent=t; document.getElementById('msgError').className='msg error show'; document.getElementById('msgSuccess').className='msg success'; }
+function showSuccess(t) { document.getElementById('msgSuccessText').textContent=t; document.getElementById('msgSuccess').className='msg success show'; document.getElementById('msgError').className='msg error'; }
+function toggleStrength(val) { let s=0; if(val.length>=6)s++;if(val.length>=10)s++;if(/[A-Z0-9]/.test(val))s++;if(/[^a-zA-Z0-9]/.test(val)&&val.length>=8)s++; const colors=['#E24B4A','#EF9F27','#5DCAA5','#5DCAA5']; ['s1','s2','s3','s4'].forEach((id,i)=>{document.getElementById(id).style.background=i<s?colors[s-1]:'var(--border2)';}); document.getElementById('strengthLabel').textContent=val.length>0?['','Zaif',"O'rtacha",'Yaxshi','Kuchli'][s]:''; }
+function getMyLocation() { if(!navigator.geolocation)return; navigator.geolocation.getCurrentPosition(pos=>{document.getElementById('latField').value=pos.coords.latitude.toFixed(6);document.getElementById('lngField').value=pos.coords.longitude.toFixed(6);}); }
+function getEditMyLocation() { if(!navigator.geolocation)return; navigator.geolocation.getCurrentPosition(pos=>{document.getElementById('editLat').value=pos.coords.latitude.toFixed(6);document.getElementById('editLng').value=pos.coords.longitude.toFixed(6);}); }
 
-function showError(t) {
-  document.getElementById('msgErrorText').textContent=t;
-  document.getElementById('msgError').className='msg error show';
-  document.getElementById('msgSuccess').className='msg success';
-}
-function showSuccess(t) {
-  document.getElementById('msgSuccessText').textContent=t;
-  document.getElementById('msgSuccess').className='msg success show';
-  document.getElementById('msgError').className='msg error';
-}
-
-function toggleStrength(val) {
-  let s=0;
-  if(val.length>=6)s++;if(val.length>=10)s++;
-  if(/[A-Z0-9]/.test(val))s++;if(/[^a-zA-Z0-9]/.test(val)&&val.length>=8)s++;
-  const colors=['#E24B4A','#EF9F27','#5DCAA5','#5DCAA5'];
-  const labels=['','Zaif',"O'rtacha",'Yaxshi','Kuchli'];
-  ['s1','s2','s3','s4'].forEach((id,i) => { document.getElementById(id).style.background=i<s?colors[s-1]:'var(--border2)'; });
-  document.getElementById('strengthLabel').textContent=val.length>0?labels[s]:'';
+// ── HUDUDLAR ──
+async function hududTabYukla() {
+  const list = document.getElementById('tumanList');
+  list.innerHTML = tumanlar.map(t => `<div class="tuman-item" onclick="hududTumanTanlash('${t}', this)">${t}</div>`).join('');
 }
 
-function getMyLocation() {
-  if(!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(pos => {
-    document.getElementById('latField').value=pos.coords.latitude.toFixed(6);
-    document.getElementById('lngField').value=pos.coords.longitude.toFixed(6);
-  });
-}
-function getEditMyLocation() {
-  if(!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(pos => {
-    document.getElementById('editLat').value=pos.coords.latitude.toFixed(6);
-    document.getElementById('editLng').value=pos.coords.longitude.toFixed(6);
-  });
+async function hududTumanTanlash(tuman, el) {
+  joriyTuman = tuman;
+  document.querySelectorAll('.tuman-item').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('hududTumanNomi').textContent = tuman;
+  document.getElementById('addHududRow').style.display = 'flex';
+  document.getElementById('yangiHududNomi').value = '';
+  await hududlarniKorsatish(tuman);
 }
 
-// ── Chat shablonlari ──
-async function loadXabarlar() {
-  const snap = await db.collection("chatTemplates").get();
-  const xabarlar = [];
-  snap.forEach(d => xabarlar.push({ id: d.id, ...d.data() }));
-  const kategoriyalar = {};
-  xabarlar.forEach(x => {
-    if (!kategoriyalar[x.kategoriya]) kategoriyalar[x.kategoriya] = [];
-    kategoriyalar[x.kategoriya].push(x);
-  });
-  const list = document.getElementById('xabarlarList');
-  if (!xabarlar.length) { list.innerHTML = '<div class="empty-msg">Hali shablon yo\'q</div>'; return; }
-  list.innerHTML = Object.entries(kategoriyalar).map(([kat, items]) => `
-    <div class="kat-group">
-      <div class="kat-header">${kat}</div>
-      ${items.map(x => `
-        <div class="xabar-item">
-          <div class="xabar-rol"><span class="rol-badge ${x.rol}">${x.rol==='agent'?'Agent':x.rol==='magazin'?'Magazin':'Ikkalasi'}</span></div>
-          <div class="xabar-text">${x.matn}</div>
-          <button class="btn-del-xabar" onclick="xabarOchir('${x.id}')">✕</button>
-        </div>
-      `).join('')}
-    </div>
-  `).join('');
-}
-
-async function xabarQosh() {
-  const matn       = document.getElementById('xabarMatn').value.trim();
-  const kategoriya = document.getElementById('xabarKat').value;
-  const rol        = document.getElementById('xabarRol').value;
-  if (!matn) { alert("Xabar matnini kiriting"); return; }
-  await db.collection("chatTemplates").add({ matn, kategoriya, rol, createdAt: new Date().toISOString() });
-  document.getElementById('xabarMatn').value = '';
-  loadXabarlar();
-}
-
-async function xabarOchir(id) {
-  await db.collection("chatTemplates").doc(id).delete();
-  loadXabarlar();
-}
-
-// ── Yarim agentlar ──
-function showLocalForm() {
-  document.getElementById('localForm').style.display='block';
-}
-
-async function saqlashLocal() {
-  const nomi = document.getElementById('localNomi').value.trim();
-  const telefon = document.getElementById('localTelefon').value.trim();
-  const tuman = document.getElementById('localTuman').value;
-  const kategoriya = document.getElementById('localKat').value.trim();
-  const login = document.getElementById('localLogin').value.trim().toLowerCase();
-  const parol = document.getElementById('localParol').value;
-  const msgEl = document.getElementById('localMsg');
-
-  if (!nomi || !tuman) { msgEl.textContent='Nomi va tuman majburiy!'; msgEl.style.display='block'; return; }
-  if (login.length < 3) { msgEl.textContent='Login kamida 3 belgi!'; msgEl.style.display='block'; return; }
-  if (parol.length < 6) { msgEl.textContent='Parol kamida 6 belgi!'; msgEl.style.display='block'; return; }
-  msgEl.style.display='none';
-
-  const existing = await db.collection('localSellers').where('login','==',login).get();
-  if (!existing.empty) { msgEl.textContent='Bu login allaqachon band!'; msgEl.style.display='block'; return; }
-
-  const uid = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2,9);
-  await db.collection('localSellers').doc(uid).set({
-    name: nomi, telefon, tuman, kategoriya,
-    login, _pass: parol,
-    role: 'localSeller', aktiv: true, blocked: false,
-    createdAt: new Date().toISOString()
-  });
-
-  ['localNomi','localTelefon','localTuman','localKat','localLogin','localParol'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('localForm').style.display='none';
-  yuklashLocal();
-  alert(nomi + " muvaffaqiyatli yaratildi!\nLogin: " + login + "\nParol: " + parol);
-}
-
-async function yuklashLocal() {
-  const snap = await db.collection('localSellers').orderBy('createdAt','desc').get();
-  const list = document.getElementById('localList');
-  if (snap.empty) { list.innerHTML='<div style="text-align:center;color:var(--muted);padding:32px">Hali yarim agent yoq</div>'; return; }
+async function hududlarniKorsatish(tuman) {
+  const list = document.getElementById('hududList');
+  list.innerHTML = '<div style="color:var(--muted);font-size:13px">Yuklanmoqda...</div>';
+  const snap = await db.collection('hududlar').where('tuman','==',tuman).orderBy('nomi').get();
+  document.getElementById('hududSoni').textContent = snap.size + ' ta hudud';
+  if (snap.empty) { list.innerHTML='<div class="empty-msg">Hali hudud qo\'shilmagan.<br>Yuqoridagi maydonga hudud nomini yozing.</div>'; return; }
   list.innerHTML = snap.docs.map(d => {
-    const s = d.data();
-    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    const h = d.data();
+    return `<div class="hudud-card">
       <div>
-        <div style="font-size:14px;font-weight:600;margin-bottom:4px">🏠 ${s.name||s.nomi}</div>
-        <div style="font-size:12px;color:var(--muted2);margin-top:2px">${s.tuman} · ${s.kategoriya||''} · ${s.telefon||''}</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px">@${s.login||''} · ${s._pass||''}</div>
+        <div class="hudud-name">${h.nomi}</div>
+        <div class="hudud-count" style="color:${h.aktiv?'var(--green)':'var(--muted)'}">${h.aktiv?'Faol':'Nofaol'}</div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${!s.blocked?'rgba(93,202,165,0.12)':'rgba(226,75,74,0.12)'};color:${!s.blocked?'var(--green)':'var(--red)'}">${!s.blocked?'Faol':'Nofaol'}</span>
-        <button onclick="ochirishLocal('${d.id}')" style="background:rgba(226,75,74,0.12);color:var(--red);border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px">🗑</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="hududAktivlik('${d.id}',${h.aktiv})" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer">${h.aktiv?'O\'chirish':'Yoqish'}</button>
+        <button onclick="hududOchir('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(226,75,74,.3);background:var(--red-dim);color:var(--red);cursor:pointer">🗑</button>
       </div>
     </div>`;
   }).join('');
 }
 
-async function ochirishLocal(id) {
-  if (!confirm('Yarim agentni ochirasizmi? Bu amalni qaytarib bolmaydi!')) return;
-  await db.collection('localSellers').doc(id).delete();
-  yuklashLocal();
+async function hududQosh() {
+  const nomi = document.getElementById('yangiHududNomi').value.trim();
+  if (!nomi || !joriyTuman) return;
+  // Mavjudligini tekshirish
+  const existing = await db.collection('hududlar').where('tuman','==',joriyTuman).where('nomi','==',nomi).get();
+  if (!existing.empty) { alert('Bu hudud allaqachon mavjud!'); return; }
+  await db.collection('hududlar').add({ tuman: joriyTuman, nomi, aktiv: true, createdAt: new Date().toISOString() });
+  document.getElementById('yangiHududNomi').value = '';
+  await hududlarniKorsatish(joriyTuman);
 }
 
-function mahsulotQosh(sellerId, sellerNomi, tuman) {
-  const nomi = prompt('Mahsulot nomi:');
-  if (!nomi) return;
-  const narx = prompt("Narxi (so'm):");
-  if (!narx) return;
-  const birlik = prompt('Birlik (Dona/Kg/Litr):') || 'Dona';
-  db.collection('localProducts').add({
-    nomi, narx: Number(narx), birlik,
-    sellerId, sellerNomi, tuman,
-    mavjud: true, createdAt: Date.now()
-  }).then(() => alert('Mahsulot qoshildi!'));
+document.getElementById('yangiHududNomi')?.addEventListener('keydown', e => { if(e.key==='Enter') hududQosh(); });
+
+async function hududAktivlik(id, aktiv) {
+  await db.collection('hududlar').doc(id).update({ aktiv: !aktiv });
+  await hududlarniKorsatish(joriyTuman);
 }
+
+async function hududOchir(id) {
+  if (!confirm("Hududni o'chirasizmi?")) return;
+  await db.collection('hududlar').doc(id).delete();
+  await hududlarniKorsatish(joriyTuman);
+}
+
+// ── Chat shablonlari ──
+async function loadXabarlar() {
+  const snap=await db.collection("chatTemplates").get();
+  const xabarlar=[]; snap.forEach(d=>xabarlar.push({id:d.id,...d.data()}));
+  const kategoriyalar={};
+  xabarlar.forEach(x=>{if(!kategoriyalar[x.kategoriya])kategoriyalar[x.kategoriya]=[];kategoriyalar[x.kategoriya].push(x);});
+  const list=document.getElementById('xabarlarList');
+  if(!xabarlar.length){list.innerHTML='<div class="empty-msg">Hali shablon yo\'q</div>';return;}
+  list.innerHTML=Object.entries(kategoriyalar).map(([kat,items])=>`<div class="kat-group"><div class="kat-header">${kat}</div>${items.map(x=>`<div class="xabar-item"><div class="xabar-rol"><span class="rol-badge ${x.rol}">${x.rol==='agent'?'Agent':x.rol==='magazin'?'Magazin':'Ikkalasi'}</span></div><div class="xabar-text">${x.matn}</div><button class="btn-del-xabar" onclick="xabarOchir('${x.id}')">✕</button></div>`).join('')}</div>`).join('');
+}
+async function xabarQosh() { const matn=document.getElementById('xabarMatn').value.trim(),kategoriya=document.getElementById('xabarKat').value,rol=document.getElementById('xabarRol').value; if(!matn){alert("Xabar matnini kiriting");return;} await db.collection("chatTemplates").add({matn,kategoriya,rol,createdAt:new Date().toISOString()}); document.getElementById('xabarMatn').value=''; loadXabarlar(); }
+async function xabarOchir(id) { await db.collection("chatTemplates").doc(id).delete(); loadXabarlar(); }
+
+// ── Yarim agentlar ──
+function showLocalForm() { document.getElementById('localForm').style.display='block'; tumanSelectFill('localTuman'); }
+
+async function saqlashLocal() {
+  const nomi=document.getElementById('localNomi').value.trim(), telefon=document.getElementById('localTelefon').value.trim();
+  const tuman=document.getElementById('localTuman').value, hudud=document.getElementById('localHudud').value;
+  const kategoriya=document.getElementById('localKat').value.trim(), login=document.getElementById('localLogin').value.trim().toLowerCase();
+  const parol=document.getElementById('localParol').value;
+  const msgEl=document.getElementById('localMsg');
+  if (!nomi||!tuman){msgEl.textContent='Nomi va tuman majburiy!';msgEl.style.display='block';return;}
+  if (!hudud){msgEl.textContent='Hudud (MFY) tanlang!';msgEl.style.display='block';return;}
+  if (login.length<3){msgEl.textContent='Login kamida 3 belgi!';msgEl.style.display='block';return;}
+  if (parol.length<6){msgEl.textContent='Parol kamida 6 belgi!';msgEl.style.display='block';return;}
+  msgEl.style.display='none';
+  const existing=await db.collection('localSellers').where('login','==',login).get();
+  if(!existing.empty){msgEl.textContent='Bu login allaqachon band!';msgEl.style.display='block';return;}
+  const uid='local_'+Date.now()+'_'+Math.random().toString(36).substr(2,9);
+  await db.collection('localSellers').doc(uid).set({name:nomi,telefon,tuman,hudud,kategoriya,login,_pass:parol,role:'localSeller',aktiv:true,blocked:false,createdAt:new Date().toISOString()});
+  ['localNomi','localTelefon','localTuman','localKat','localLogin','localParol'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('localHudud').innerHTML='<option value="">Avval tuman tanlang</option>';
+  document.getElementById('localForm').style.display='none';
+  yuklashLocal();
+  alert(nomi+" muvaffaqiyatli yaratildi!\nLogin: "+login+"\nParol: "+parol);
+}
+
+async function yuklashLocal() {
+  const snap=await db.collection('localSellers').orderBy('createdAt','desc').get();
+  const list=document.getElementById('localList');
+  if(snap.empty){list.innerHTML='<div style="text-align:center;color:var(--muted);padding:32px">Hali yarim agent yoq</div>';return;}
+  list.innerHTML=snap.docs.map(d=>{const s=d.data();return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div><div style="font-size:14px;font-weight:600;margin-bottom:4px">🏠 ${s.name||s.nomi}</div><div style="font-size:12px;color:var(--muted2);margin-top:2px">${s.tuman} · ${s.hudud||''} · ${s.kategoriya||''} · ${s.telefon||''}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px">@${s.login||''} · ${s._pass||''}</div></div><div style="display:flex;gap:8px;align-items:center"><span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${!s.blocked?'rgba(93,202,165,0.12)':'rgba(226,75,74,0.12)'};color:${!s.blocked?'var(--green)':'var(--red)'}">${!s.blocked?'Faol':'Nofaol'}</span><button onclick="ochirishLocal('${d.id}')" style="background:rgba(226,75,74,0.12);color:var(--red);border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px">🗑</button></div></div>`;}).join('');
+}
+
+async function ochirishLocal(id) { if(!confirm('Yarim agentni ochirasizmi?'))return; await db.collection('localSellers').doc(id).delete(); yuklashLocal(); }
 
 // ── Statistika ──
 async function loadStats() {
-  const el = document.getElementById('statsContent');
-  el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">Yuklanmoqda...</div>';
-  const firmsSnap = await db.collection("firms").get();
-  const agents = [];
-  firmsSnap.forEach(d => agents.push({ id: d.id, ...d.data() }));
-  if (!agents.length) { el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">Hali agent yo\'q</div>'; return; }
-  let html = '';
-  for (const agent of agents) {
-    const prodSnap = await db.collection("products").where("firmId", "==", agent.id).get();
-    const mahsulotlar = [];
-    prodSnap.forEach(d => mahsulotlar.push({ id: d.id, ...d.data() }));
-    const jami       = mahsulotlar.length;
-    const mavjud     = mahsulotlar.filter(m => m.mavjud !== false).length;
-    const tugagan    = jami - mavjud;
-    html += `
-      <div class="agent-card">
-        <div class="agent-card-header">
-          <div class="agent-avatar">${(agent.name||'A').charAt(0).toUpperCase()}</div>
-          <div>
-            <div class="agent-name">${agent.name||'Noma\'lum'}</div>
-            <div class="agent-login">@${agent.login||''} · ${agent.phone||''}</div>
-          </div>
-          <div style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:var(--purple)">${jami}</div>
-        </div>
-        <div class="mahsulot-stats">
-          <div class="mahsulot-stat"><div class="mahsulot-stat-num" style="color:var(--purple)">${jami}</div><div class="mahsulot-stat-label">Jami</div></div>
-          <div class="mahsulot-stat"><div class="mahsulot-stat-num" style="color:var(--green)">${mavjud}</div><div class="mahsulot-stat-label">Mavjud</div></div>
-          <div class="mahsulot-stat"><div class="mahsulot-stat-num" style="color:var(--red)">${tugagan}</div><div class="mahsulot-stat-label">Tugagan</div></div>
-        </div>
-
-      </div>
-    `;
+  const el=document.getElementById('statsContent'); el.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px">Yuklanmoqda...</div>';
+  const firmsSnap=await db.collection("firms").get(); const agents=[];
+  firmsSnap.forEach(d=>agents.push({id:d.id,...d.data()}));
+  if(!agents.length){el.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px">Hali agent yo\'q</div>';return;}
+  let html='';
+  for(const agent of agents){
+    const prodSnap=await db.collection("products").where("firmId","==",agent.id).get(); const mahsulotlar=[];
+    prodSnap.forEach(d=>mahsulotlar.push({id:d.id,...d.data()}));
+    const jami=mahsulotlar.length, mavjud=mahsulotlar.filter(m=>m.mavjud!==false).length;
+    html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:14px;margin-bottom:14px"><div style="width:46px;height:46px;border-radius:50%;background:var(--purple-dim);border:1px solid rgba(127,119,221,.2);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--purple)">${(agent.name||'A').charAt(0).toUpperCase()}</div><div><div style="font-size:15px;font-weight:600">${agent.name||"Noma'lum"}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted2)">@${agent.login||''}</div></div><div style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:var(--purple)">${jami}</div></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"><div style="background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:12px;text-align:center"><div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;color:var(--purple)">${jami}</div><div style="font-size:11px;color:var(--muted2)">Jami</div></div><div style="background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:12px;text-align:center"><div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;color:var(--green)">${mavjud}</div><div style="font-size:11px;color:var(--muted2)">Mavjud</div></div><div style="background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:12px;text-align:center"><div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;color:var(--red)">${jami-mavjud}</div><div style="font-size:11px;color:var(--muted2)">Tugagan</div></div></div></div>`;
   }
-  el.innerHTML = html;
+  el.innerHTML=html;
 }
 </script>
 </body>
