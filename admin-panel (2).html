@@ -651,8 +651,9 @@ async function editTumanOzgardi(selectedHudud='') {
   const tuman = document.getElementById('editTuman').value;
   const sel = document.getElementById('editHudud');
   if (!tuman) { sel.innerHTML='<option value="">Avval tuman tanlang</option>'; return; }
-  const snap = await db.collection('hududlar').where('tuman','==',tuman).where('aktiv','==',true).orderBy('nomi').get();
-  sel.innerHTML = '<option value="">Tanlang</option>' + snap.docs.map(d => `<option value="${d.data().nomi}" ${d.data().nomi===selectedHudud?'selected':''}>${d.data().nomi}</option>`).join('');
+  const snap = await db.collection('hududlar').where('tuman','==',tuman).where('aktiv','==',true).get();
+  const sortedDocs = snap.docs.slice().sort((a,b) => (a.data().nomi||'').localeCompare(b.data().nomi||''));
+  sel.innerHTML = '<option value="">Tanlang</option>' + sortedDocs.map(d => `<option value="${d.data().nomi}" ${d.data().nomi===selectedHudud?'selected':''}>${d.data().nomi}</option>`).join('');
 }
 
 function closeEdit() { document.getElementById('editModal').style.display='none'; }
@@ -697,8 +698,9 @@ function selectTuman(el, tuman) {
 async function hududlarniYukla(selectId, tuman) {
   const sel = document.getElementById(selectId);
   if (!tuman) { sel.innerHTML='<option value="">Avval tuman tanlang</option>'; return; }
-  const snap = await db.collection('hududlar').where('tuman','==',tuman).where('aktiv','==',true).orderBy('nomi').get();
-  sel.innerHTML = '<option value="">Tanlang</option>' + snap.docs.map(d => `<option value="${d.data().nomi}">${d.data().nomi}</option>`).join('');
+  const snap = await db.collection('hududlar').where('tuman','==',tuman).where('aktiv','==',true).get();
+  const sortedDocs = snap.docs.slice().sort((a,b) => (a.data().nomi||'').localeCompare(b.data().nomi||''));
+  sel.innerHTML = '<option value="">Tanlang</option>' + sortedDocs.map(d => `<option value="${d.data().nomi}">${d.data().nomi}</option>`).join('');
 }
 
 async function localTumanOzgardi() {
@@ -779,10 +781,11 @@ async function hududTumanTanlash(tuman, el) {
 async function hududlarniKorsatish(tuman) {
   const list = document.getElementById('hududList');
   list.innerHTML = '<div style="color:var(--muted);font-size:13px">Yuklanmoqda...</div>';
-  const snap = await db.collection('hududlar').where('tuman','==',tuman).orderBy('nomi').get();
+  const snap = await db.collection('hududlar').where('tuman','==',tuman).get();
   document.getElementById('hududSoni').textContent = snap.size + ' ta hudud';
   if (snap.empty) { list.innerHTML='<div class="empty-msg">Hali hudud qo\'shilmagan.<br>Yuqoridagi maydonga hudud nomini yozing.</div>'; return; }
-  list.innerHTML = snap.docs.map(d => {
+  const docs = snap.docs.slice().sort((a,b) => (a.data().nomi||'').localeCompare(b.data().nomi||''));
+  list.innerHTML = docs.map(d => {
     const h = d.data();
     return `<div class="hudud-card">
       <div>
