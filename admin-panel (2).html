@@ -789,14 +789,29 @@ async function hududlarniKorsatish(tuman) {
   const snap = await db.collection('hududlar').where('tuman','==',tuman).get();
   document.getElementById('hududSoni').textContent = snap.size + ' ta hudud';
   if (snap.empty) { list.innerHTML='<div class="empty-msg">Hali hudud qo\'shilmagan.<br>Yuqoridagi maydonga hudud nomini yozing.</div>'; return; }
-  const docs = snap.docs.slice().sort((a,b) => (a.data().nomi||'').localeCompare(b.data().nomi||''));
-  list.innerHTML = docs.map(d => {
+  // Tartib bo'yicha saralash (tartib yo'q bo'lsa nom bo'yicha)
+  const docs = snap.docs.slice().sort((a,b) => {
+    const ta = a.data().tartib, tb = b.data().tartib;
+    if (ta != null && tb != null) return ta - tb;
+    if (ta != null) return -1;
+    if (tb != null) return 1;
+    return (a.data().nomi||'').localeCompare(b.data().nomi||'');
+  });
+  list.innerHTML = docs.map((d, i) => {
     const h = d.data();
     const hasCoord = h.lat && h.lng;
+    const yuqoriDisabled = i === 0 ? 'opacity:0.3;pointer-events:none' : '';
+    const pastDisabled = i === docs.length-1 ? 'opacity:0.3;pointer-events:none' : '';
     return `<div class="hudud-card">
-      <div>
-        <div class="hudud-name">${h.nomi}</div>
-        <div class="hudud-count" style="color:${h.aktiv?'var(--green)':'var(--muted)'}">${h.aktiv?'Faol':'Nofaol'}${hasCoord?' · 📍 koordinata bor':' · koordinata yo\'q'}</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <button onclick="hududKochir('${tuman}',${i},-1)" style="${yuqoriDisabled};font-size:11px;width:26px;height:22px;border-radius:5px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;padding:0">▲</button>
+          <button onclick="hududKochir('${tuman}',${i},1)" style="${pastDisabled};font-size:11px;width:26px;height:22px;border-radius:5px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;padding:0">▼</button>
+        </div>
+        <div>
+          <div class="hudud-name">${i+1}. ${h.nomi}</div>
+          <div class="hudud-count" style="color:${h.aktiv?'var(--green)':'var(--muted)'}">${h.aktiv?'Faol':'Nofaol'}${hasCoord?' · 📍 koordinata bor':' · koordinata yo\'q'}</div>
+        </div>
       </div>
       <div style="display:flex;gap:8px">
         ${hasCoord?`<button onclick="window.open('https://yandex.uz/maps/?ll=${h.lng},${h.lat}&z=16&pt=${h.lng},${h.lat}','_blank')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(127,119,221,.3);background:var(--purple-dim);color:var(--purple);cursor:pointer">🗺 Ko'rish</button>`:''}
@@ -805,6 +820,25 @@ async function hududlarniKorsatish(tuman) {
       </div>
     </div>`;
   }).join('');
+  // Saralangan tartibni global saqlash (ko'chirish uchun)
+  window._hududDocs = docs.map(d => ({ id: d.id, tartib: d.data().tartib }));
+}
+
+async function hududKochir(tuman, index, yonalish) {
+  const docs = window._hududDocs;
+  if (!docs) return;
+  const yangiIndex = index + yonalish;
+  if (yangiIndex < 0 || yangiIndex >= docs.length) return;
+  // Ikki hududning tartibini almashtirib, hammasini qayta raqamlash
+  const a = docs[index], b = docs[yangiIndex];
+  docs[index] = b; docs[yangiIndex] = a;
+  // Yangi tartib raqamlarini saqlash
+  const batch = db.batch();
+  docs.forEach((doc, i) => {
+    batch.update(db.collection('hududlar').doc(doc.id), { tartib: i });
+  });
+  await batch.commit();
+  await hududlarniKorsatish(tuman);
 }
 
 async function hududQosh() {
@@ -815,7 +849,9 @@ async function hududQosh() {
   // Mavjudligini tekshirish
   const existing = await db.collection('hududlar').where('tuman','==',joriyTuman).where('nomi','==',nomi).get();
   if (!existing.empty) { alert('Bu hudud allaqachon mavjud!'); return; }
-  const data = { tuman: joriyTuman, nomi, aktiv: true, createdAt: new Date().toISOString() };
+  // Tartib raqami - mavjudlardan keyin
+  const barchasi = await db.collection('hududlar').where('tuman','==',joriyTuman).get();
+  const data = { tuman: joriyTuman, nomi, aktiv: true, tartib: barchasi.size, createdAt: new Date().toISOString() };
   if (!isNaN(lat) && !isNaN(lng)) { data.lat = lat; data.lng = lng; }
   await db.collection('hududlar').add(data);
   document.getElementById('yangiHududNomi').value = '';
