@@ -816,6 +816,7 @@ async function hududlarniKorsatish(tuman) {
       <div style="display:flex;gap:8px">
         ${hasCoord?`<button onclick="window.open('https://yandex.uz/maps/?ll=${h.lng},${h.lat}&z=16&pt=${h.lng},${h.lat}','_blank')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(127,119,221,.3);background:var(--purple-dim);color:var(--purple);cursor:pointer">🗺 Ko'rish</button>`:''}
         <button onclick="hududAktivlik('${d.id}',${h.aktiv})" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer">${h.aktiv?'O\'chirish':'Yoqish'}</button>
+        <button onclick="hududTahrir('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(93,202,165,.3);background:var(--green-dim);color:var(--green);cursor:pointer">✏️</button>
         <button onclick="hududOchir('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(226,75,74,.3);background:var(--red-dim);color:var(--red);cursor:pointer">🗑</button>
       </div>
     </div>`;
@@ -839,6 +840,18 @@ async function hududKochir(tuman, index, yonalish) {
   });
   await batch.commit();
   await hududlarniKorsatish(tuman);
+}
+
+async function hududTahrir(id) {
+  const doc = await db.collection('hududlar').doc(id).get();
+  if (!doc.exists) return;
+  const eski = doc.data().nomi || '';
+  const yangi = prompt('Hudud nomini o\'zgartiring:', eski);
+  if (yangi === null) return; // bekor qilindi
+  const yangiNomi = yangi.trim();
+  if (!yangiNomi || yangiNomi === eski) return;
+  await db.collection('hududlar').doc(id).update({ nomi: yangiNomi });
+  await hududlarniKorsatish(joriyTuman);
 }
 
 async function hududQosh() {
