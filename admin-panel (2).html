@@ -195,6 +195,7 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     <button class="tab-btn"        id="tab-stats"    data-tab="stats">📊 Statistika</button>
     <button class="tab-btn"        id="tab-local"    data-tab="local">🏠 Yarim agentlar</button>
     <button class="tab-btn"        id="tab-hudud"    data-tab="hudud">📍 Hududlar</button>
+    <button class="tab-btn"        id="tab-bonus"    data-tab="bonus">🎁 Bonuslar</button>
   </div>
 
   <!-- USERS -->
@@ -392,6 +393,20 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     </div>
   </div>
 
+  <!-- BONUSLAR -->
+  <div class="tab-content" id="content-bonus" style="flex-direction:column;padding:24px;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <h2 style="margin:0;font-size:20px">🎁 Bonuslar boshqaruvi</h2>
+      <div id="bonusStats" style="font-size:13px;color:var(--muted)"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="bonus-filter-btn active" data-bholat="jarayonda" onclick="bonusFilter('jarayonda')" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;font-size:13px">Jarayonda</button>
+      <button class="bonus-filter-btn" data-bholat="tasdiqlangan" onclick="bonusFilter('tasdiqlangan')" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--muted2);cursor:pointer;font-size:13px">Tasdiqlangan</button>
+      <button class="bonus-filter-btn" data-bholat="olishMumkin" onclick="bonusFilter('olishMumkin')" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--muted2);cursor:pointer;font-size:13px">Olish mumkin</button>
+    </div>
+    <div id="bonusList" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+
   <!-- STATISTIKA -->
   <div class="tab-content" id="content-stats" style="flex-direction:column;padding:24px;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -506,6 +521,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (tab === 'local') { yuklashLocal(); tumanSelectFill('localTuman'); }
     if (tab === 'messages') loadXabarlar();
     if (tab === 'hudud') hududTabYukla();
+    if (tab === 'bonus') bonuslarYukla();
   });
 });
 
@@ -852,6 +868,89 @@ async function hududTahrir(id) {
   if (!yangiNomi || yangiNomi === eski) return;
   await db.collection('hududlar').doc(id).update({ nomi: yangiNomi });
   await hududlarniKorsatish(joriyTuman);
+}
+
+// ====== BONUSLAR ======
+let bonusJoriyHolat = 'jarayonda';
+
+function bonusFilter(holat) {
+  bonusJoriyHolat = holat;
+  document.querySelectorAll('.bonus-filter-btn').forEach(b => {
+    const active = b.dataset.bholat === holat;
+    b.classList.toggle('active', active);
+    b.style.background = active ? 'var(--surface2)' : 'none';
+    b.style.color = active ? 'var(--text)' : 'var(--muted2)';
+  });
+  bonuslarYukla();
+}
+
+function bonusSumFormat(n) {
+  return (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+async function bonuslarYukla() {
+  const list = document.getElementById('bonusList');
+  list.innerHTML = '<div style="color:var(--muted);font-size:13px">Yuklanmoqda...</div>';
+  const snap = await db.collection('bonuslar').where('holat','==',bonusJoriyHolat).get();
+  document.getElementById('bonusStats').textContent = snap.size + ' ta bonus';
+  if (snap.empty) {
+    list.innerHTML = '<div class="empty-msg">Bu bosqichda bonus yo\'q.</div>';
+    return;
+  }
+  const docs = snap.docs.slice().sort((a,b) => (b.data().yaratilgan||0) - (a.data().yaratilgan||0));
+  list.innerHTML = docs.map(d => {
+    const b = d.data();
+    const sana = b.yaratilgan ? new Date(b.yaratilgan * 1000).toLocaleDateString('uz') : '';
+    let tugmalar = '';
+    if (b.holat === 'jarayonda') {
+      tugmalar = `
+        <button onclick="bonusOtkaz('${d.id}','tasdiqlangan')" style="font-size:12px;padding:6px 14px;border-radius:7px;border:none;background:var(--green);color:#000;cursor:pointer;font-weight:600">✓ Tasdiqlash</button>
+        <button onclick="bonusRad('${d.id}')" style="font-size:12px;padding:6px 14px;border-radius:7px;border:1px solid rgba(226,75,74,.3);background:var(--red-dim);color:var(--red);cursor:pointer">✗ Rad etish</button>`;
+    } else if (b.holat === 'tasdiqlangan') {
+      tugmalar = `
+        <button onclick="bonusOtkaz('${d.id}','olishMumkin')" style="font-size:12px;padding:6px 14px;border-radius:7px;border:none;background:var(--green);color:#000;cursor:pointer;font-weight:600">→ Olish mumkin</button>
+        <button onclick="bonusRad('${d.id}')" style="font-size:12px;padding:6px 14px;border-radius:7px;border:1px solid rgba(226,75,74,.3);background:var(--red-dim);color:var(--red);cursor:pointer">✗ Rad etish</button>`;
+    } else if (b.holat === 'olishMumkin') {
+      tugmalar = `
+        <button onclick="bonusBerildi('${d.id}')" style="font-size:12px;padding:6px 14px;border-radius:7px;border:none;background:var(--purple);color:#fff;cursor:pointer;font-weight:600">💵 Berildi (o'chirish)</button>`;
+    }
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+      <div>
+        <div style="font-size:16px;font-weight:700">${bonusSumFormat(b.summa)} so'm</div>
+        <div style="font-size:12px;color:var(--muted)">${b.shopNomi || 'Magazin'} · №${b.raqami} · ${sana}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="bonusSumOzgar('${d.id}',${b.summa})" style="font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer">✏️ Summa</button>
+        ${tugmalar}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function bonusOtkaz(id, yangiHolat) {
+  await db.collection('bonuslar').doc(id).update({ holat: yangiHolat });
+  await bonuslarYukla();
+}
+
+async function bonusRad(id) {
+  if (!confirm('Bu bonusni rad etib, tizimdan o\'chirasizmi?')) return;
+  await db.collection('bonuslar').doc(id).delete();
+  await bonuslarYukla();
+}
+
+async function bonusBerildi(id) {
+  if (!confirm('Bonus naqd berildi. Tizimdan o\'chirilsinmi?')) return;
+  await db.collection('bonuslar').doc(id).delete();
+  await bonuslarYukla();
+}
+
+async function bonusSumOzgar(id, eskiSumma) {
+  const yangi = prompt('Bonus summasini kiriting (so\'m):', eskiSumma);
+  if (yangi === null) return;
+  const summa = parseFloat(yangi);
+  if (isNaN(summa) || summa < 0) { alert('Noto\'g\'ri summa'); return; }
+  await db.collection('bonuslar').doc(id).update({ summa: summa });
+  await bonuslarYukla();
 }
 
 async function hududQosh() {
