@@ -196,6 +196,7 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     <button class="tab-btn"        id="tab-local"    data-tab="local">🏠 Yarim agentlar</button>
     <button class="tab-btn"        id="tab-hudud"    data-tab="hudud">📍 Hududlar</button>
     <button class="tab-btn"        id="tab-bonus"    data-tab="bonus">🎁 Bonuslar</button>
+    <button class="tab-btn"        id="tab-settings" data-tab="settings">⚙️ Sozlamalar</button>
   </div>
 
   <!-- USERS -->
@@ -407,6 +408,58 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     <div id="bonusList" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
 
+  <!-- SOZLAMALAR -->
+  <div class="tab-content" id="content-settings" style="flex-direction:column;padding:24px;overflow-y:auto">
+    <h2 style="margin:0 0 20px;font-size:20px">⚙️ Ilova sozlamalari</h2>
+
+    <!-- Yetkazuvchilar -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:15px;font-weight:600;color:var(--text)">🚚 Yetkazuvchilar funksiyasi</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Yoqilsa — agent profilida "Yetkazuvchilar" tugmasi ko'rinadi</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer">
+          <input type="checkbox" id="toggle-yetkazuvchi" style="opacity:0;width:0;height:0" onchange="sozlamaSaqlash('yetkazuvchilarFaol', this.checked)">
+          <span id="span-yetkazuvchi" style="position:absolute;inset:0;border-radius:14px;background:#ccc;transition:.3s"></span>
+          <span id="thumb-yetkazuvchi" style="position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Mahalliy sotuvchilar -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:15px;font-weight:600;color:var(--text)">🏠 Mahalliy sotuvchilar</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Katalogda "Mahalliy mahsulotlar" bo'limini ko'rsatish</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer">
+          <input type="checkbox" id="toggle-mahalliy" style="opacity:0;width:0;height:0" onchange="sozlamaSaqlash('mahalliyFaol', this.checked)">
+          <span id="span-mahalliy" style="position:absolute;inset:0;border-radius:14px;background:#ccc;transition:.3s"></span>
+          <span id="thumb-mahalliy" style="position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Bonus tizimi -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:15px;font-weight:600;color:var(--text)">🎁 Bonus tizimi</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Magazin profilida "Bonuslarim" tugmasini ko'rsatish</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer">
+          <input type="checkbox" id="toggle-bonus" style="opacity:0;width:0;height:0" onchange="sozlamaSaqlash('bonusFaol', this.checked)">
+          <span id="span-bonus" style="position:absolute;inset:0;border-radius:14px;background:#ccc;transition:.3s"></span>
+          <span id="thumb-bonus" style="position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+        </label>
+      </div>
+    </div>
+
+    <div id="sozlama-xabar" style="font-size:13px;color:var(--green);display:none;margin-top:8px">✓ Saqlandi</div>
+  </div>
+
   <!-- STATISTIKA -->
   <div class="tab-content" id="content-stats" style="flex-direction:column;padding:24px;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -522,6 +575,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (tab === 'messages') loadXabarlar();
     if (tab === 'hudud') hududTabYukla();
     if (tab === 'bonus') bonuslarYukla();
+    if (tab === 'settings') sozlamalarYukla();
   });
 });
 
@@ -951,6 +1005,41 @@ async function bonusSumOzgar(id, eskiSumma) {
   if (isNaN(summa) || summa < 0) { alert('Noto\'g\'ri summa'); return; }
   await db.collection('bonuslar').doc(id).update({ summa: summa });
   await bonuslarYukla();
+}
+
+// ====== SOZLAMALAR ======
+function toggleKorinish(id, aktiv) {
+  const span = document.getElementById('span-' + id);
+  const thumb = document.getElementById('thumb-' + id);
+  if (!span || !thumb) return;
+  span.style.background = aktiv ? 'var(--green)' : '#ccc';
+  thumb.style.left = aktiv ? '27px' : '3px';
+}
+
+async function sozlamalarYukla() {
+  const doc = await db.collection('settings').doc('global').get();
+  const data = doc.exists ? doc.data() : {};
+  const sozlamalar = [
+    { id: 'yetkazuvchi', key: 'yetkazuvchilarFaol', default: true },
+    { id: 'mahalliy',    key: 'mahalliyFaol',        default: true },
+    { id: 'bonus',       key: 'bonusFaol',            default: true },
+  ];
+  sozlamalar.forEach(s => {
+    const val = data[s.key] !== undefined ? data[s.key] : s.default;
+    const el = document.getElementById('toggle-' + s.id);
+    if (el) el.checked = val;
+    toggleKorinish(s.id, val);
+  });
+}
+
+async function sozlamaSaqlash(key, val) {
+  toggleKorinish(
+    key === 'yetkazuvchilarFaol' ? 'yetkazuvchi' :
+    key === 'mahalliyFaol' ? 'mahalliy' : 'bonus', val
+  );
+  await db.collection('settings').doc('global').set({ [key]: val }, { merge: true });
+  const xabar = document.getElementById('sozlama-xabar');
+  if (xabar) { xabar.style.display = 'block'; setTimeout(() => xabar.style.display = 'none', 2000); }
 }
 
 async function hududQosh() {
