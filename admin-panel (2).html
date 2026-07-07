@@ -197,6 +197,7 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     <button class="tab-btn"        id="tab-hudud"    data-tab="hudud">📍 Hududlar</button>
     <button class="tab-btn"        id="tab-bonus"    data-tab="bonus">🎁 Bonuslar</button>
     <button class="tab-btn"        id="tab-settings" data-tab="settings">⚙️ Sozlamalar</button>
+    <button class="tab-btn"        id="tab-buxgalteriya" data-tab="buxgalteriya">📊 Buxgalteriya</button>
   </div>
 
   <!-- USERS -->
@@ -460,6 +461,46 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     <div id="sozlama-xabar" style="font-size:13px;color:var(--green);display:none;margin-top:8px">✓ Saqlandi</div>
   </div>
 
+  <!-- BUXGALTERIYA -->
+  <div class="tab-content" id="content-buxgalteriya" style="flex-direction:column;padding:24px;overflow-y:auto">
+    <h2 style="margin:0 0 6px;font-size:20px">📊 Buxgalteriya</h2>
+    <p style="margin:0 0 20px;font-size:13px;color:var(--muted)">Firma savdosi va 2,5% ulush hisoboti. Bonuslar bu hisobga kirmaydi (admin alohida to'laydi).</p>
+
+    <!-- Sana tanlash -->
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:5px">BOSHLANISH</div>
+        <input type="date" id="bux-boshlanish" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:5px">TUGASH</div>
+        <input type="date" id="bux-tugash" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px">
+      </div>
+      <button onclick="buxgalteriyaHisobla()" style="padding:9px 20px;border-radius:8px;border:none;background:var(--green);color:#000;font-weight:600;cursor:pointer;font-size:13px">Hisoblash</button>
+      <button onclick="buxOyTanla(0)" style="padding:9px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;font-size:12px">Shu oy</button>
+      <button onclick="buxOyTanla(-1)" style="padding:9px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;font-size:12px">O'tgan oy</button>
+    </div>
+
+    <!-- Umumiy natija -->
+    <div id="bux-umumiy" style="display:none;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <div style="flex:1;min-width:160px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <div style="font-size:12px;color:var(--muted)">Jami yakunlangan savdo</div>
+        <div id="bux-jami-savdo" style="font-size:22px;font-weight:700;color:var(--text);margin-top:4px">0</div>
+      </div>
+      <div style="flex:1;min-width:160px;background:var(--green-dim);border:1px solid var(--green);border-radius:12px;padding:16px">
+        <div style="font-size:12px;color:var(--green)">Jami 2,5% ulush</div>
+        <div id="bux-jami-ulush" style="font-size:22px;font-weight:700;color:var(--green);margin-top:4px">0</div>
+      </div>
+      <div style="flex:1;min-width:160px;background:var(--surface);border:1px solid rgba(226,75,74,.3);border-radius:12px;padding:16px">
+        <div style="font-size:12px;color:var(--red)">Bekor/qaytarilgan (nazorat)</div>
+        <div id="bux-jami-bekor" style="font-size:22px;font-weight:700;color:var(--red);margin-top:4px">0</div>
+      </div>
+    </div>
+
+    <!-- Firmalar jadvali -->
+    <div id="bux-natija"></div>
+  </div>
+
   <!-- STATISTIKA -->
   <div class="tab-content" id="content-stats" style="flex-direction:column;padding:24px;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -576,6 +617,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (tab === 'hudud') hududTabYukla();
     if (tab === 'bonus') bonuslarYukla();
     if (tab === 'settings') sozlamalarYukla();
+    if (tab === 'buxgalteriya') buxgalteriyaTayyorla();
   });
 });
 
@@ -1040,6 +1082,106 @@ async function sozlamaSaqlash(key, val) {
   await db.collection('settings').doc('global').set({ [key]: val }, { merge: true });
   const xabar = document.getElementById('sozlama-xabar');
   if (xabar) { xabar.style.display = 'block'; setTimeout(() => xabar.style.display = 'none', 2000); }
+}
+
+// ====== BUXGALTERIYA ======
+function buxSumFormat(n) {
+  return Math.round(n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+// Sana inputlarini shu oyга to'ldirish
+function buxgalteriyaTayyorla() {
+  buxOyTanla(0);
+}
+
+// Oy tanlash: 0 = shu oy, -1 = o'tgan oy
+function buxOyTanla(offset) {
+  const now = new Date();
+  const boshi = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const oxiri = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
+  document.getElementById('bux-boshlanish').value = boshi.toISOString().slice(0, 10);
+  document.getElementById('bux-tugash').value = oxiri.toISOString().slice(0, 10);
+  buxgalteriyaHisobla();
+}
+
+async function buxgalteriyaHisobla() {
+  const natija = document.getElementById('bux-natija');
+  natija.innerHTML = '<div style="color:var(--muted);font-size:13px">Hisoblanmoqda...</div>';
+
+  const boshStr = document.getElementById('bux-boshlanish').value;
+  const oxirStr = document.getElementById('bux-tugash').value;
+  if (!boshStr || !oxirStr) { natija.innerHTML = '<div class="empty-msg">Sana tanlang.</div>'; return; }
+
+  // Sana -> timestamp (sekund)
+  const boshTs = new Date(boshStr + 'T00:00:00').getTime() / 1000;
+  const oxirTs = new Date(oxirStr + 'T23:59:59').getTime() / 1000;
+
+  // Barcha zakazlarni olish
+  const snap = await db.collection('orders').get();
+
+  // Firma bo'yicha yig'ish
+  const firmalar = {}; // firmId -> { nomi, yakunlangan, bekor }
+  let jamiSavdo = 0, jamiBekor = 0;
+
+  snap.forEach(doc => {
+    const z = doc.data();
+    const sana = z.sana || z.createdAt || 0;
+    if (sana < boshTs || sana > oxirTs) return; // sana oralig'idan tashqari
+
+    const firmId = z.firmId || 'nomalum';
+    const firmNomi = z.firmNomi || 'Noma\'lum firma';
+    const summa = z.summa || 0;
+    const holat = z.holat || '';
+
+    if (!firmalar[firmId]) firmalar[firmId] = { nomi: firmNomi, yakunlangan: 0, bekor: 0 };
+
+    if (holat === 'yakunlandi') {
+      firmalar[firmId].yakunlangan += summa;
+      jamiSavdo += summa;
+    } else if (holat === 'qaytarildi' || holat === 'bekor') {
+      firmalar[firmId].bekor += summa;
+      jamiBekor += summa;
+    }
+  });
+
+  // Umumiy kartalar
+  document.getElementById('bux-umumiy').style.display = 'flex';
+  document.getElementById('bux-jami-savdo').textContent = buxSumFormat(jamiSavdo) + " so'm";
+  document.getElementById('bux-jami-ulush').textContent = buxSumFormat(jamiSavdo * 0.025) + " so'm";
+  document.getElementById('bux-jami-bekor').textContent = buxSumFormat(jamiBekor) + " so'm";
+
+  // Firmalarni savdo bo'yicha saralash
+  const royxat = Object.entries(firmalar).sort((a, b) => b[1].yakunlangan - a[1].yakunlangan);
+
+  if (royxat.length === 0) {
+    natija.innerHTML = '<div class="empty-msg">Bu oraliqda savdo topilmadi.</div>';
+    return;
+  }
+
+  // Jadval
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead>
+      <tr style="background:var(--surface2);text-align:left">
+        <th style="padding:10px 12px;border-bottom:1px solid var(--border)">Firma</th>
+        <th style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:right">Yakunlangan savdo</th>
+        <th style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:right;color:var(--green)">2,5% ulush</th>
+        <th style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:right;color:var(--red)">Bekor/qaytarilgan</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  royxat.forEach(([id, f]) => {
+    const ulush = f.yakunlangan * 0.025;
+    html += `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:10px 12px;font-weight:600">${f.nomi}</td>
+      <td style="padding:10px 12px;text-align:right">${buxSumFormat(f.yakunlangan)} so'm</td>
+      <td style="padding:10px 12px;text-align:right;font-weight:700;color:var(--green)">${buxSumFormat(ulush)} so'm</td>
+      <td style="padding:10px 12px;text-align:right;color:${f.bekor > 0 ? 'var(--red)' : 'var(--muted)'}">${buxSumFormat(f.bekor)} so'm</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  natija.innerHTML = html;
 }
 
 async function hududQosh() {
