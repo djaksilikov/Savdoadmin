@@ -455,6 +455,28 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     </div>
 
     <div id="sozlama-xabar" style="font-size:13px;color:var(--green);display:none;margin-top:8px">✓ Saqlandi</div>
+
+    <!-- Admin qo'shish -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-top:16px">
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px">🛡️ Yangi administrator qo'shish</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Admin ilovaga va veb-panelga login/parol bilan kira oladi</div>
+      <div style="display:flex;flex-direction:column;gap:10px;max-width:400px">
+        <input type="text" id="admin-nomi" placeholder="Ism (masalan: Aziz)" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px">
+        <input type="text" id="admin-login" placeholder="Login (masalan: aziz_admin)" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px">
+        <input type="email" id="admin-email" placeholder="Email (masalan: aziz@savdo.uz)" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px">
+        <input type="text" id="admin-parol" placeholder="Parol (kamida 6 belgi)" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px">
+        <button onclick="adminQosh()" style="padding:10px;border-radius:8px;border:none;background:var(--green);color:#000;font-weight:600;cursor:pointer;font-size:13px">Admin qo'shish</button>
+        <div id="admin-xabar" style="font-size:13px;display:none"></div>
+      </div>
+    </div>
+
+    <!-- Adminlar ro'yxati -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-top:12px">
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:12px">Adminlar ro'yxati</div>
+      <div id="adminlar-royxat" style="display:flex;flex-direction:column;gap:8px">
+        <div style="color:var(--muted);font-size:13px">Yuklanmoqda...</div>
+      </div>
+    </div>
   </div>
 
   <!-- BUXGALTERIYA -->
@@ -472,6 +494,10 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
         <div style="font-size:11px;color:var(--muted);margin-bottom:5px">TUGASH</div>
         <input type="date" id="bux-tugash" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px">
       </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:5px">ULUSH %</div>
+        <input type="number" id="bux-foiz" value="2.5" step="0.1" min="0" style="width:80px;padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px">
+      </div>
       <button onclick="buxgalteriyaHisobla()" style="padding:9px 20px;border-radius:8px;border:none;background:var(--green);color:#000;font-weight:600;cursor:pointer;font-size:13px">Hisoblash</button>
       <button onclick="buxOyTanla(0)" style="padding:9px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;font-size:12px">Shu oy</button>
       <button onclick="buxOyTanla(-1)" style="padding:9px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;font-size:12px">O'tgan oy</button>
@@ -484,7 +510,7 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
         <div id="bux-jami-savdo" style="font-size:22px;font-weight:700;color:var(--text);margin-top:4px">0</div>
       </div>
       <div style="flex:1;min-width:160px;background:var(--green-dim);border:1px solid var(--green);border-radius:12px;padding:16px">
-        <div style="font-size:12px;color:var(--green)">Jami 2,5% ulush</div>
+        <div id="bux-ulush-label" style="font-size:12px;color:var(--green)">Jami ulush</div>
         <div id="bux-jami-ulush" style="font-size:22px;font-weight:700;color:var(--green);margin-top:4px">0</div>
       </div>
       <div style="flex:1;min-width:160px;background:var(--surface);border:1px solid rgba(226,75,74,.3);border-radius:12px;padding:16px">
@@ -1069,6 +1095,83 @@ async function sozlamalarYukla() {
   });
   // Firmalar ro'yxatini yetkazuvchi toggle bilan yuklash
   firmaYetkazuvchiYukla();
+  // Adminlar ro'yxatini yuklash
+  adminlarYukla();
+}
+
+async function adminlarYukla() {
+  const royxat = document.getElementById('adminlar-royxat');
+  const snap = await db.collection('admins').get();
+  if (snap.empty) {
+    royxat.innerHTML = '<div style="color:var(--muted);font-size:13px">Admin yo\'q.</div>';
+    return;
+  }
+  royxat.innerHTML = snap.docs.map(d => {
+    const a = d.data();
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-radius:10px">
+      <div>
+        <div style="font-size:14px;color:var(--text);font-weight:600">${a.nomi || a.login || 'Admin'}</div>
+        <div style="font-size:12px;color:var(--muted)">@${a.login || ''} · ${a.email || ''}</div>
+      </div>
+      <button onclick="adminOchir('${d.id}', '${a.login || ''}')" style="padding:6px 12px;border-radius:7px;border:1px solid rgba(226,75,74,.3);background:var(--red-dim);color:var(--red);cursor:pointer;font-size:12px">O'chirish</button>
+    </div>`;
+  }).join('');
+}
+
+async function adminQosh() {
+  const nomi = document.getElementById('admin-nomi').value.trim();
+  const login = document.getElementById('admin-login').value.trim().toLowerCase();
+  const email = document.getElementById('admin-email').value.trim();
+  const parol = document.getElementById('admin-parol').value;
+  const xabar = document.getElementById('admin-xabar');
+
+  function xabarKorsat(matn, rang) {
+    xabar.textContent = matn;
+    xabar.style.color = rang;
+    xabar.style.display = 'block';
+  }
+
+  if (!nomi || !login || !email || !parol) { xabarKorsat('Barcha maydonlarni to\'ldiring', 'var(--red)'); return; }
+  if (parol.length < 6) { xabarKorsat('Parol kamida 6 belgi', 'var(--red)'); return; }
+
+  // Login band emasligini tekshirish
+  const mavjud = await db.collection('admins').where('login', '==', login).get();
+  if (!mavjud.empty) { xabarKorsat('Bu login band', 'var(--red)'); return; }
+
+  xabarKorsat('Yaratilmoqda...', 'var(--muted)');
+
+  try {
+    // Firebase Auth da yaratish (ikkilamchi ilova orqali - joriy admin chiqib ketmasligi uchun)
+    const ikkilamchi = firebase.initializeApp(firebaseConfig, 'AdminYaratish_' + Date.now());
+    const userCred = await ikkilamchi.auth().createUserWithEmailAndPassword(email, parol);
+    const uid = userCred.user.uid;
+    await ikkilamchi.auth().signOut();
+    await ikkilamchi.delete();
+
+    // admins kolleksiyasiga yozish
+    await db.collection('admins').doc(uid).set({
+      nomi: nomi,
+      login: login,
+      email: email,
+      role: 'superAdmin',
+      createdAt: Date.now()
+    });
+
+    xabarKorsat('✓ Admin qo\'shildi', 'var(--green)');
+    document.getElementById('admin-nomi').value = '';
+    document.getElementById('admin-login').value = '';
+    document.getElementById('admin-email').value = '';
+    document.getElementById('admin-parol').value = '';
+    adminlarYukla();
+  } catch (e) {
+    xabarKorsat('Xato: ' + e.message, 'var(--red)');
+  }
+}
+
+async function adminOchir(id, login) {
+  if (!confirm(login + ' adminni o\'chirasizmi? (Firebase Auth dan qo\'lda o\'chirish kerak bo\'lishi mumkin)')) return;
+  await db.collection('admins').doc(id).delete();
+  adminlarYukla();
 }
 
 async function firmaYetkazuvchiYukla() {
@@ -1148,6 +1251,10 @@ async function buxgalteriyaHisobla() {
   const boshTs = new Date(boshStr + 'T00:00:00').getTime() / 1000;
   const oxirTs = new Date(oxirStr + 'T23:59:59').getTime() / 1000;
 
+  // Foizni olish (default 2.5)
+  const foiz = parseFloat(document.getElementById('bux-foiz').value) || 2.5;
+  const ulushKoef = foiz / 100;
+
   // Barcha zakazlarni olish
   const snap = await db.collection('orders').get();
 
@@ -1179,7 +1286,9 @@ async function buxgalteriyaHisobla() {
   // Umumiy kartalar
   document.getElementById('bux-umumiy').style.display = 'flex';
   document.getElementById('bux-jami-savdo').textContent = buxSumFormat(jamiSavdo) + " so'm";
-  document.getElementById('bux-jami-ulush').textContent = buxSumFormat(jamiSavdo * 0.025) + " so'm";
+  document.getElementById('bux-jami-ulush').textContent = buxSumFormat(jamiSavdo * ulushKoef) + " so'm";
+  const ulushLabel = document.getElementById('bux-ulush-label');
+  if (ulushLabel) ulushLabel.textContent = 'Jami ' + foiz + '% ulush';
   document.getElementById('bux-jami-bekor').textContent = buxSumFormat(jamiBekor) + " so'm";
 
   // Firmalarni savdo bo'yicha saralash
@@ -1196,14 +1305,14 @@ async function buxgalteriyaHisobla() {
       <tr style="background:var(--surface2);text-align:left">
         <th style="padding:10px 12px;border-bottom:1px solid var(--border)">Firma</th>
         <th style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:right">Yakunlangan savdo</th>
-        <th style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:right;color:var(--green)">2,5% ulush</th>
+        <th style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:right;color:var(--green)">${foiz}% ulush</th>
         <th style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:right;color:var(--red)">Bekor/qaytarilgan</th>
       </tr>
     </thead>
     <tbody>`;
 
   royxat.forEach(([id, f]) => {
-    const ulush = f.yakunlangan * 0.025;
+    const ulush = f.yakunlangan * ulushKoef;
     html += `<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:10px 12px;font-weight:600">${f.nomi}</td>
       <td style="padding:10px 12px;text-align:right">${buxSumFormat(f.yakunlangan)} so'm</td>
