@@ -413,18 +413,14 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
   <div class="tab-content" id="content-settings" style="flex-direction:column;padding:24px;overflow-y:auto">
     <h2 style="margin:0 0 20px;font-size:20px">⚙️ Ilova sozlamalari</h2>
 
-    <!-- Yetkazuvchilar -->
+    <!-- Yetkazuvchilar - har firma uchun alohida -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-size:15px;font-weight:600;color:var(--text)">🚚 Yetkazuvchilar funksiyasi</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px">Yoqilsa — agent profilida "Yetkazuvchilar" tugmasi ko'rinadi</div>
-        </div>
-        <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer">
-          <input type="checkbox" id="toggle-yetkazuvchi" style="opacity:0;width:0;height:0" onchange="sozlamaSaqlash('yetkazuvchilarFaol', this.checked)">
-          <span id="span-yetkazuvchi" style="position:absolute;inset:0;border-radius:14px;background:#ccc;transition:.3s"></span>
-          <span id="thumb-yetkazuvchi" style="position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
-        </label>
+      <div style="margin-bottom:14px">
+        <div style="font-size:15px;font-weight:600;color:var(--text)">🚚 Yetkazuvchilar funksiyasi (firma bo'yicha)</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Har bir firma uchun alohida yoqing/o'chiring. Yoqilsa — o'sha firma profilida "Yetkazuvchilar" tugmasi ko'rinadi.</div>
+      </div>
+      <div id="firma-yetkazuvchi-royxat" style="display:flex;flex-direction:column;gap:8px">
+        <div style="color:var(--muted);font-size:13px">Yuklanmoqda...</div>
       </div>
     </div>
 
@@ -1062,7 +1058,6 @@ async function sozlamalarYukla() {
   const doc = await db.collection('settings').doc('global').get();
   const data = doc.exists ? doc.data() : {};
   const sozlamalar = [
-    { id: 'yetkazuvchi', key: 'yetkazuvchilarFaol', default: true },
     { id: 'mahalliy',    key: 'mahalliyFaol',        default: true },
     { id: 'bonus',       key: 'bonusFaol',            default: true },
   ];
@@ -1072,13 +1067,50 @@ async function sozlamalarYukla() {
     if (el) el.checked = val;
     toggleKorinish(s.id, val);
   });
+  // Firmalar ro'yxatini yetkazuvchi toggle bilan yuklash
+  firmaYetkazuvchiYukla();
+}
+
+async function firmaYetkazuvchiYukla() {
+  const royxat = document.getElementById('firma-yetkazuvchi-royxat');
+  const snap = await db.collection('firms').get();
+  if (snap.empty) {
+    royxat.innerHTML = '<div style="color:var(--muted);font-size:13px">Firma yo\'q.</div>';
+    return;
+  }
+  // Nom bo'yicha saralash
+  const docs = snap.docs.slice().sort((a, b) => {
+    const na = (a.data().firmaNomi || a.data().name || '').toLowerCase();
+    const nb = (b.data().firmaNomi || b.data().name || '').toLowerCase();
+    return na.localeCompare(nb);
+  });
+  royxat.innerHTML = docs.map(d => {
+    const f = d.data();
+    const nomi = f.firmaNomi || f.name || 'Nomsiz firma';
+    const faol = f.yetkazuvchilarFaol !== undefined ? f.yetkazuvchilarFaol : true;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-radius:10px">
+      <div style="font-size:14px;color:var(--text)">${nomi}</div>
+      <label style="position:relative;display:inline-block;width:46px;height:26px;cursor:pointer">
+        <input type="checkbox" ${faol ? 'checked' : ''} onchange="firmaYetkazuvchiOzgar('${d.id}', this.checked, this)" style="opacity:0;width:0;height:0">
+        <span style="position:absolute;inset:0;border-radius:13px;background:${faol ? 'var(--green)' : '#ccc'};transition:.3s"></span>
+        <span style="position:absolute;top:3px;left:${faol ? '23px' : '3px'};width:20px;height:20px;border-radius:50%;background:#fff;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+      </label>
+    </div>`;
+  }).join('');
+}
+
+async function firmaYetkazuvchiOzgar(firmId, val, el) {
+  // Vizual yangilash
+  const span = el.nextElementSibling;
+  const thumb = span.nextElementSibling;
+  if (span) span.style.background = val ? 'var(--green)' : '#ccc';
+  if (thumb) thumb.style.left = val ? '23px' : '3px';
+  // Firebase saqlash
+  await db.collection('firms').doc(firmId).update({ yetkazuvchilarFaol: val });
 }
 
 async function sozlamaSaqlash(key, val) {
-  toggleKorinish(
-    key === 'yetkazuvchilarFaol' ? 'yetkazuvchi' :
-    key === 'mahalliyFaol' ? 'mahalliy' : 'bonus', val
-  );
+  toggleKorinish(key === 'mahalliyFaol' ? 'mahalliy' : 'bonus', val);
   await db.collection('settings').doc('global').set({ [key]: val }, { merge: true });
   const xabar = document.getElementById('sozlama-xabar');
   if (xabar) { xabar.style.display = 'block'; setTimeout(() => xabar.style.display = 'none', 2000); }
