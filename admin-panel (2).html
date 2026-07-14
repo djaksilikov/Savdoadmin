@@ -198,9 +198,20 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     <button class="tab-btn"        id="tab-bonus"    data-tab="bonus">🎁 Bonuslar</button>
     <button class="tab-btn"        id="tab-settings" data-tab="settings">⚙️ Sozlamalar</button>
     <button class="tab-btn"        id="tab-buxgalteriya" data-tab="buxgalteriya">📊 Buxgalteriya</button>
+    <button class="tab-btn"        id="tab-ombor"    data-tab="ombor">🏭 Ombor</button>
   </div>
 
   <!-- USERS -->
+  <!-- OMBOR INTEGRATSIYA (qo'shildi) -->
+  <div class="tab-content" id="content-ombor" style="flex-direction:column;padding:24px;overflow-y:auto">
+    <div class="messages-title">Ombor integratsiyasi</div>
+    <div class="messages-sub">Firmalarga ombor ilovasidan foydalanish ruxsatini bering va Direktor / Supervizer yarating. Agentlarni supervizer ombor ilovasida o'zi qo'shadi.</div>
+    <div class="table-toolbar">
+      <div class="search-box"><span>🔍</span><input id="omborQidiruv" placeholder="Firma qidirish..." oninput="omborFiltr()"></div>
+    </div>
+    <div id="omborFirmalar"><div style="text-align:center;color:var(--muted);padding:40px">Yuklanmoqda...</div></div>
+  </div>
+
   <div class="tab-content" id="content-users">
     <div class="left-panel">
       <div class="stats-row">
@@ -1424,6 +1435,160 @@ async function loadStats() {
   }
   el.innerHTML=html;
 }
+
+// ═══════════════════════════════════════════════════════════
+// OMBOR INTEGRATSIYA (qo'shildi) — mavjud kodga tegmaydi
+// omborXodimlar: login/parol Firestore'da (Firebase Auth emas),
+// Savdo'dagi dastavchik/sotuvchi tizimiga o'xshaydi.
+// ═══════════════════════════════════════════════════════════
+let omborFirmalarData = [];
+const omborInp = "background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:12px;padding:7px 10px;outline:none;font-family:'IBM Plex Mono',monospace";
+
+async function loadOmborIntegratsiya() {
+  const el = document.getElementById('omborFirmalar');
+  el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">Yuklanmoqda...</div>';
+  try {
+    const snap = await db.collection('firms').get();
+    omborFirmalarData = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => ((a.firmaNomi || a.name || '').toLowerCase())
+        .localeCompare((b.firmaNomi || b.name || '').toLowerCase()));
+    omborRender(omborFirmalarData);
+  } catch (e) {
+    el.innerHTML = '<div style="color:var(--red);padding:20px">Xato: ' + e.message + '</div>';
+  }
+}
+
+function omborFiltr() {
+  const q = (document.getElementById('omborQidiruv').value || '').toLowerCase();
+  omborRender(omborFirmalarData.filter(f =>
+    ((f.firmaNomi || f.name || '')).toLowerCase().includes(q)));
+}
+
+function omborRender(list) {
+  const el = document.getElementById('omborFirmalar');
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">Firma topilmadi</div>';
+    return;
+  }
+  el.innerHTML = list.map(f => {
+    const nomi = f.firmaNomi || f.name || 'Nomsiz firma';
+    const ruxsat = f.omborRuxsat === true;
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:10px;background:var(--purple-dim);border:1px solid rgba(127,119,221,.2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--purple)">${nomi.charAt(0).toUpperCase()}</div>
+          <div>
+            <div style="font-size:15px;font-weight:600">${nomi}</div>
+            <div class="mono">@${f.login || ''}</div>
+          </div>
+        </div>
+        <label style="position:relative;display:inline-block;width:46px;height:26px;cursor:pointer">
+          <input type="checkbox" ${ruxsat ? 'checked' : ''} onchange="omborRuxsatToggle('${f.id}', this.checked)" style="opacity:0;width:0;height:0">
+          <span style="position:absolute;inset:0;border-radius:13px;background:${ruxsat ? 'var(--green)' : '#444'};transition:.3s"></span>
+          <span style="position:absolute;top:3px;left:${ruxsat ? '23px' : '3px'};width:20px;height:20px;border-radius:50%;background:#fff;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+        </label>
+      </div>
+      ${ruxsat ? omborFormaHTML(f.id, nomi) : ''}
+    </div>`;
+  }).join('');
+  list.filter(f => f.omborRuxsat === true).forEach(f => omborXodimlarYukla(f.id));
+}
+
+function omborFormaHTML(firmId, nomi) {
+  const safe = nomi.replace(/'/g, "");
+  return `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+    <div style="display:grid;grid-template-columns:130px 1fr 1fr;gap:8px;margin-bottom:8px">
+      <select id="ombor-rol-${firmId}" style="${omborInp}">
+        <option value="direktor">Direktor</option>
+        <option value="supervizer">Supervizer</option>
+      </select>
+      <input id="ombor-login-${firmId}" style="${omborInp}" placeholder="Login" autocomplete="off">
+      <input id="ombor-parol-${firmId}" style="${omborInp}" placeholder="Parol">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:12px">
+      <input id="ombor-nomi-${firmId}" style="${omborInp}" placeholder="Ism familya">
+      <input id="ombor-tel-${firmId}" style="${omborInp}" placeholder="Telefon (ixtiyoriy)">
+      <button class="btn-edit" style="white-space:nowrap" onclick="omborXodimQosh('${firmId}','${safe}')">+ Qo'shish</button>
+    </div>
+    <div class="mono" id="ombor-xabar-${firmId}" style="min-height:14px;margin-bottom:8px"></div>
+    <div id="ombor-xodimlar-${firmId}"><div class="mono" style="color:var(--muted)">Yuklanmoqda...</div></div>
+  </div>`;
+}
+
+async function omborRuxsatToggle(firmId, val) {
+  try {
+    await db.collection('firms').doc(firmId).update({ omborRuxsat: val });
+    const f = omborFirmalarData.find(x => x.id === firmId);
+    if (f) f.omborRuxsat = val;
+    omborFiltr(); // qidiruvni saqlab qayta chizadi
+  } catch (e) { alert('Xato: ' + e.message); }
+}
+
+async function omborXodimlarYukla(firmId) {
+  const box = document.getElementById('ombor-xodimlar-' + firmId);
+  if (!box) return;
+  try {
+    const snap = await db.collection('omborXodimlar').where('firmId', '==', firmId).get();
+    if (snap.empty) {
+      box.innerHTML = '<div class="mono" style="color:var(--muted)">Xodim yo\'q</div>';
+      return;
+    }
+    box.innerHTML = snap.docs.map(d => {
+      const x = d.data();
+      const rol = x.rol || 'agent';
+      const pill = rol === 'direktor' ? 'firma' : 'magazin';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface2);border-radius:8px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="role-pill ${pill}">${rol}</span>
+          <span style="font-size:13px">${x.nomi || ''}</span>
+          <span class="mono">@${x.login || ''}</span>
+        </div>
+        <button class="btn-del" onclick="omborXodimOchir('${d.id}','${firmId}')">O'chirish</button>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="mono" style="color:var(--red)">Xato: ' + e.message + '</div>';
+  }
+}
+
+async function omborXodimQosh(firmId, firmNomi) {
+  const rol = document.getElementById('ombor-rol-' + firmId).value;
+  const login = (document.getElementById('ombor-login-' + firmId).value || '').trim();
+  const parol = (document.getElementById('ombor-parol-' + firmId).value || '').trim();
+  const nomi = (document.getElementById('ombor-nomi-' + firmId).value || '').trim();
+  const tel = (document.getElementById('ombor-tel-' + firmId).value || '').trim();
+  const xabar = document.getElementById('ombor-xabar-' + firmId);
+  if (!login || !parol || !nomi) {
+    xabar.style.color = 'var(--red)'; xabar.textContent = 'Login, parol va ism majburiy'; return;
+  }
+  try {
+    const bor = await db.collection('omborXodimlar').where('login', '==', login).limit(1).get();
+    if (!bor.empty) { xabar.style.color = 'var(--red)'; xabar.textContent = 'Bu login band'; return; }
+    await db.collection('omborXodimlar').add({
+      firmId: firmId, firmNomi: firmNomi, rol: rol,
+      login: login, parol: parol, nomi: nomi, telefon: tel,
+      supervizerId: '', yaratilgan: Date.now()
+    });
+    xabar.style.color = 'var(--green)'; xabar.textContent = '\u2713 Qo\'shildi';
+    ['login', 'parol', 'nomi', 'tel'].forEach(k =>
+      document.getElementById('ombor-' + k + '-' + firmId).value = '');
+    omborXodimlarYukla(firmId);
+  } catch (e) {
+    xabar.style.color = 'var(--red)'; xabar.textContent = 'Xato: ' + e.message;
+  }
+}
+
+async function omborXodimOchir(xodimId, firmId) {
+  if (!confirm('Bu xodimni o\'chirasizmi?')) return;
+  try {
+    await db.collection('omborXodimlar').doc(xodimId).delete();
+    omborXodimlarYukla(firmId);
+  } catch (e) { alert('Xato: ' + e.message); }
+}
+
+// Tab bosilganda yuklash (mavjud generic .tab-btn handler ko'rsatish/yashirishni bajaradi)
+document.getElementById('tab-ombor').addEventListener('click', loadOmborIntegratsiya);
+
 </script>
 </body>
 </html>
