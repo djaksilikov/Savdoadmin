@@ -174,6 +174,37 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
   </div>
 </div>
 
+<!-- REJIM TANLASH (qo'shildi) -->
+<div id="modeScreen" style="display:none;align-items:center;justify-content:center;min-height:100vh;padding:24px">
+  <div style="width:100%;max-width:540px">
+    <div style="text-align:center;margin-bottom:36px">
+      <div class="logo-grid" style="width:32px;height:32px;margin:0 auto 14px"><span></span><span></span><span></span><span></span></div>
+      <div class="login-title" style="font-size:18px">Interactive Savdo</div>
+      <div style="color:var(--muted2);font-size:13px;margin-top:8px">Qaysi ilovaga kirasiz?</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <button id="modeSavdo"
+        onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'"
+        style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:34px 20px;cursor:pointer;color:var(--text);transition:.15s;text-align:center">
+        <div style="font-size:42px">🏪</div>
+        <div style="font-size:16px;font-weight:600;margin-top:12px">Savdo ilovasi</div>
+        <div style="color:var(--muted2);font-size:12px;margin-top:6px">Foydalanuvchilar, xarita, statistika, sozlamalar</div>
+      </button>
+      <button id="modeOmbor"
+        onmouseover="this.style.borderColor='var(--purple)'" onmouseout="this.style.borderColor='var(--border)'"
+        style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:34px 20px;cursor:pointer;color:var(--text);transition:.15s;text-align:center">
+        <div style="font-size:42px">🏭</div>
+        <div style="font-size:16px;font-weight:600;margin-top:12px">Ombor ilovasi</div>
+        <div style="color:var(--muted2);font-size:12px;margin-top:6px">Firma ruxsatlari, Direktor / Supervizer</div>
+      </button>
+    </div>
+    <div style="text-align:center;margin-top:28px">
+      <span class="mono" id="modeSession" style="color:var(--muted2);margin-right:12px"></span>
+      <button class="logout-btn" onclick="auth.signOut()">Chiqish</button>
+    </div>
+  </div>
+</div>
+
 <!-- PANEL -->
 <div id="panelScreen" style="flex-direction:column">
   <header>
@@ -183,7 +214,9 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
     </div>
     <div class="header-right">
       <div class="header-badge">SUPER ADMIN</div>
+      <div class="header-badge" id="rejimBadge" style="color:var(--green);background:var(--green-dim);border-color:rgba(93,202,165,.25)"></div>
       <span class="footer-text" id="sessionInfo"></span>
+      <button class="logout-btn" id="rejimBtn">↩ Rejim</button>
       <button class="logout-btn" id="logoutBtn">Chiqish</button>
     </div>
   </header>
@@ -660,13 +693,15 @@ auth.onAuthStateChanged(async user => {
     const snap = await db.collection("admin").where("email", "==", user.email).get();
     if (!snap.empty) {
       document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('panelScreen').style.display = 'flex';
+      document.getElementById('modeScreen').style.display = 'flex';
+      var _ms = document.getElementById('modeSession'); if(_ms) _ms.textContent = user.email;
       document.getElementById('sessionInfo').textContent = user.email;
       loadUsers(); initMap(); loadXabarlar();
     } else { await auth.signOut(); showLoginError("Siz admin emassiz"); }
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('panelScreen').style.display = 'none';
+    document.getElementById('modeScreen').style.display = 'none';
   }
 });
 
@@ -1588,6 +1623,38 @@ async function omborXodimOchir(xodimId, firmId) {
 
 // Tab bosilganda yuklash (mavjud generic .tab-btn handler ko'rsatish/yashirishni bajaradi)
 document.getElementById('tab-ombor').addEventListener('click', loadOmborIntegratsiya);
+
+
+// ═══════════════════════════════════════════════════════════
+// REJIM MANTIG'I (Savdo / Ombor) — qo'shildi
+// ═══════════════════════════════════════════════════════════
+const savdoTablar = ['users','map','messages','stats','local','hudud','bonus','settings','buxgalteriya'];
+const omborTablar = ['ombor'];  // kelajakda ombor tablari shu yerga qo'shiladi
+
+function rejimGa(rejim) {
+  document.getElementById('modeScreen').style.display = 'none';
+  document.getElementById('panelScreen').style.display = 'flex';
+  const korinsin = (rejim === 'ombor') ? omborTablar : savdoTablar;
+  // Faqat tegishli rejim tablarini ko'rsatish
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.style.display = korinsin.includes(b.dataset.tab) ? '' : 'none';
+  });
+  // Rejim belgisi
+  const badge = document.getElementById('rejimBadge');
+  if (badge) badge.textContent = (rejim === 'ombor') ? 'OMBOR' : 'SAVDO';
+  // Birinchi tabni ochish (uning yuklovchisi ham ishga tushadi)
+  const birinchi = document.getElementById('tab-' + korinsin[0]);
+  if (birinchi) birinchi.click();
+}
+
+function rejimTanlashgaQaytish() {
+  document.getElementById('panelScreen').style.display = 'none';
+  document.getElementById('modeScreen').style.display = 'flex';
+}
+
+document.getElementById('modeSavdo').addEventListener('click', () => rejimGa('savdo'));
+document.getElementById('modeOmbor').addEventListener('click', () => rejimGa('ombor'));
+document.getElementById('rejimBtn').addEventListener('click', rejimTanlashgaQaytish);
 
 </script>
 </body>
