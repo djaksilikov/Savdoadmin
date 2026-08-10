@@ -125,6 +125,7 @@ header{border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:
 .role-pill.magazin{background:var(--green-dim);color:var(--green);border:1px solid rgba(93,202,165,.2);}
 
 .role-pill.firma{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(127,119,221,.2);}
+.role-pill.optim{background:rgba(240,180,80,.15);color:var(--amber);border:1px solid rgba(240,180,80,.2);}
 
 .pass-val{font-family:'IBM Plex Mono',monospace;font-size:11px;}
 
@@ -504,6 +505,8 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
 
         <div class="stat-card"><div class="stat-num" id="firmaCount" style="color:var(--purple)">0</div><div class="stat-label">Firma</div></div>
 
+        <div class="stat-card"><div class="stat-num" id="optimCount" style="color:var(--amber)">0</div><div class="stat-label">Optim</div></div>
+
         <div class="stat-card"><div class="stat-num" id="blockedCount" style="color:var(--red)">0</div><div class="stat-label">Bloklangan</div></div>
 
         <div class="stat-card"><div class="stat-num" id="mapCount" style="color:var(--amber)">0</div><div class="stat-label">Xaritada</div></div>
@@ -517,6 +520,8 @@ footer{border-top:1px solid var(--border);padding:10px 24px;display:flex;justify
         <button class="filter-btn"        id="filter_magazinEgasi" onclick="setFilter('magazinEgasi')">Magazin</button>
 
         <button class="filter-btn"        id="filter_firmaAgent"   onclick="setFilter('firmaAgent')">Firma</button>
+
+        <button class="filter-btn"        id="filter_optim"        onclick="setFilter('optim')">Optim</button>
 
         <div class="search-box">
 
@@ -1521,6 +1526,10 @@ async function loadUsers() {
 
   firms.forEach(d => users.push({ ...d.data(), _id: d.id, _role: 'firmaAgent' }));
 
+  const optimlar = await db.collection("optimlar").get();
+
+  optimlar.forEach(d => users.push({ ...d.data(), _id: d.id, _role: 'optim' }));
+
   allUsers = users;
 
   renderTable(users); loadMapMarkers();
@@ -1530,6 +1539,8 @@ async function loadUsers() {
   document.getElementById('magazinCount').textContent = users.filter(u => u._role==='magazinEgasi').length;
 
   document.getElementById('firmaCount').textContent   = users.filter(u => u._role==='firmaAgent').length;
+
+  document.getElementById('optimCount').textContent   = users.filter(u => u._role==='optim').length;
 
   document.getElementById('blockedCount').textContent = users.filter(u => u.blocked).length;
 
@@ -1553,7 +1564,7 @@ function renderTable(users) {
 
   list.innerHTML = filtered.map(u => {
 
-    const rc = u._role==='magazinEgasi'?'magazin':'firma';
+    const rc = u._role==='magazinEgasi'?'magazin':(u._role==='optim'?'optim':'firma');
 
     const hasCoord = u.lat && u.lng;
 
@@ -1567,7 +1578,7 @@ function renderTable(users) {
 
       </div></div></td>
 
-      <td><span class="role-pill ${rc}">${u._role==='magazinEgasi'?'Magazin':'Firma'}</span></td>
+      <td><span class="role-pill ${rc}">${u._role==='magazinEgasi'?'Magazin':(u._role==='optim'?'Optim':'Firma')}</span></td>
 
       <td><span class="mono">${u.login||u.phone||'—'}</span></td>
 
